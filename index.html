@@ -1,541 +1,681 @@
-import React, { useState } from 'react';
-
-export default function App() {
-  const [activeMenu, setActiveMenu] = useState('lancamento');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  // --- Estrutura do Menu ---
-  const menuItems = [
-    {
-      category: "OPERAÇÃO",
-      items: [
-        { id: 'lancamento', label: 'NOVO DESPACHO (LANÇAMENTO)' },
-        { id: 'despacho', label: 'CONSULTA DE ORDENS' },
-        { id: 'agendamento', label: 'PRÉ-AGENDAMENTO' },
-        { id: 'percentual', label: 'PERCENTUAL DE EXECUÇÃO' },
-      ]
-    },
-    {
-      category: "EQUIPAMENTOS",
-      items: [
-        { id: 'baterias', label: 'STATUS DE BATERIAS' },
-      ]
-    },
-    {
-      category: "CADASTROS",
-      items: [
-        { id: 'motoristas', label: 'MOTORISTAS' },
-        { id: 'operadores', label: 'OPERADORES' },
-      ]
-    }
-  ];
-
-  // --- COMPONENTE NOVO: Lançamento de Despacho Otimizado ---
-  const LancamentoDespachoScreen = () => {
-    // Estado inicial com 1 veículo vazio
-    const [despachos, setDespachos] = useState([
-      { id: 1, rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }
-    ]);
-
-    // Simula puxar a escala do dia anterior para não ter que digitar tudo de novo
-    const carregarProgramacaoAnterior = () => {
-      setDespachos([
-        { id: 1, rastreador: 'RST-1001', statusRastreador: 'ATIVO', caminhao: 'ABC-1234', motorista: 'JOÃO SILVA', operadores: ['99101', '99102', '99103'], mapas: ['CV100200MT001', 'CV100200MT002'] },
-        { id: 2, rastreador: 'RST-1002', statusRastreador: 'MANUTENÇÃO', caminhao: 'XYZ-9876', motorista: 'CARLOS MENDES', operadores: ['99201', '99202'], mapas: ['CV100200MT003'] },
-        { id: 3, rastreador: 'RST-1003', statusRastreador: 'ATIVO', caminhao: 'DEF-5678', motorista: 'MARCOS PAULO', operadores: ['99301', '99302', '99303', '99304'], mapas: ['CV100200MT004', 'CV100200MT005'] },
-      ]);
-    };
-
-    const adicionarVeiculo = () => {
-      setDespachos([...despachos, { id: Date.now(), rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }]);
-    };
-
-    const removerVeiculo = (id) => {
-      setDespachos(despachos.filter(d => d.id !== id));
-    };
-
-    const adicionarMapa = (despachoId) => {
-      const novosDespachos = despachos.map(d => {
-        if (d.id === despachoId) return { ...d, mapas: [...d.mapas, ''] };
-        return d;
-      });
-      setDespachos(novosDespachos);
-    };
-
-    const removerMapa = (despachoId, mapaIndex) => {
-      const novosDespachos = despachos.map(d => {
-        if (d.id === despachoId) {
-          const novosMapas = d.mapas.filter((_, index) => index !== mapaIndex);
-          return { ...d, mapas: novosMapas };
-        }
-        return d;
-      });
-      setDespachos(novosDespachos);
-    };
-
-    const atualizarMapa = (despachoId, mapaIndex, novoValor) => {
-      const novosDespachos = despachos.map(d => {
-        if (d.id === despachoId) {
-          const novosMapas = [...d.mapas];
-          novosMapas[mapaIndex] = novoValor;
-          return { ...d, mapas: novosMapas };
-        }
-        return d;
-      });
-      setDespachos(novosDespachos);
-    };
-
-    const adicionarOperador = (despachoId) => {
-      setDespachos(despachos.map(d => d.id === despachoId ? { ...d, operadores: [...d.operadores, ''] } : d));
-    };
-
-    const removerOperador = (despachoId, opIndex) => {
-      setDespachos(despachos.map(d => {
-        if (d.id === despachoId) {
-          return { ...d, operadores: d.operadores.filter((_, index) => index !== opIndex) };
-        }
-        return d;
-      }));
-    };
-
-    const atualizarOperador = (despachoId, opIndex, novoValor) => {
-      setDespachos(despachos.map(d => {
-        if (d.id === despachoId) {
-          const novosOperadores = [...d.operadores];
-          novosOperadores[opIndex] = novoValor;
-          return { ...d, operadores: novosOperadores };
-        }
-        return d;
-      }));
-    };
-
-    const atualizarVeiculoCampo = (despachoId, campo, valor) => {
-      setDespachos(despachos.map(d => d.id === despachoId ? { ...d, [campo]: valor } : d));
-    };
-
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b-4 border-black pb-4">
-          <div>
-            <h2 className="text-2xl font-black text-black uppercase">LANÇAMENTO DE DESPACHOS</h2>
-            <p className="font-bold text-gray-500 uppercase mt-1">VINCULE MÚLTIPLOS MAPAS E SEPARE RASTREADOR DE CAMINHÃO EM UMA ÚNICA TELA.</p>
-          </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={carregarProgramacaoAnterior}
-              className="bg-black text-white px-4 py-2 font-bold uppercase border-2 border-black hover:bg-gray-800 transition-colors text-sm"
-            >
-              CARREGAR PROGRAMAÇÃO ANTERIOR
-            </button>
-            <button 
-              onClick={() => setDespachos([{ id: 1, rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }])}
-              className="bg-white text-black px-4 py-2 font-bold uppercase border-2 border-black hover:bg-gray-200 transition-colors text-sm"
-            >
-              LIMPAR
-            </button>
-          </div>
-        </div>
-
-        {/* Lista Dinâmica de Lançamentos */}
-        <div className="space-y-4">
-          {despachos.map((despacho, index) => (
-            <div key={despacho.id} className="bg-white border-4 border-black p-4 relative">
-              
-              {/* Cabeçalho do Bloco */}
-              <div className="flex justify-between items-center mb-4 border-b-2 border-gray-200 pb-2">
-                <h3 className="font-black text-lg uppercase">VEÍCULO DA ROTA #{index + 1}</h3>
-                <button 
-                  onClick={() => removerVeiculo(despacho.id)}
-                  className="text-white bg-black hover:bg-gray-800 font-bold px-3 py-1 text-xs uppercase"
-                >
-                  REMOVER VEÍCULO
-                </button>
-              </div>
-
-              {/* Campos Principais Separados */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="flex flex-col">
-                  <label className="text-xs font-black uppercase mb-1 bg-gray-200 px-1 w-max">RASTREADOR E STATUS</label>
-                  <div className="flex">
-                    <input type="text" placeholder="EX: RST-1001" value={despacho.rastreador} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'rastreador', e.target.value)} className="border-2 border-black border-r-0 p-2 outline-none uppercase font-bold text-sm bg-gray-50 focus:bg-white w-2/3" />
-                    <select value={despacho.statusRastreador} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'statusRastreador', e.target.value)} className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-gray-100 w-1/3">
-                      <option value="ATIVO">ATIVO</option>
-                      <option value="DESATIVADO">DESATIVADO</option>
-                      <option value="MANUTENÇÃO">MANUTENÇÃO</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-xs font-black uppercase mb-1 bg-black text-white px-1 w-max">PLACA (CAMINHÃO DE HOJE)</label>
-                  <input type="text" placeholder="EX: ABC-1234" value={despacho.caminhao} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'caminhao', e.target.value)} className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white focus:bg-gray-100" />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-xs font-bold uppercase mb-1">MOTORISTA</label>
-                  <input type="text" placeholder="NOME DO MOTORISTA" value={despacho.motorista} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'motorista', e.target.value)} className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white" />
-                </div>
-              </div>
-
-              {/* Seção de Múltiplos Mapas (Códigos) */}
-              <div className="bg-gray-100 border-2 border-black p-3 mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-xs font-black uppercase">MAPAS (CÓDIGOS DA ROTA)</label>
-                  <button 
-                    onClick={() => adicionarMapa(despacho.id)}
-                    className="bg-black text-white px-2 py-1 text-xs font-bold uppercase hover:bg-gray-800"
-                  >
-                    + ADICIONAR OUTRO MAPA
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {despacho.mapas.map((mapa, idx) => (
-                    <div key={idx} className="flex">
-                      <input 
-                        type="text"
-                        placeholder="CÓDIGO (EX: CV100200MT001)"
-                        value={mapa}
-                        onChange={(e) => atualizarMapa(despacho.id, idx, e.target.value)}
-                        className="border-2 border-black border-r-0 p-2 outline-none uppercase font-bold text-sm bg-white w-full"
-                      />
-                      <button 
-                        onClick={() => removerMapa(despacho.id, idx)}
-                        className="bg-white border-2 border-black border-l-0 px-3 font-bold text-black hover:bg-gray-200 uppercase text-xs"
-                        disabled={despacho.mapas.length === 1}
-                      >
-                        X
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Seção de Múltiplos Operadores (Matrículas) */}
-              <div className="bg-gray-100 border-2 border-black p-3">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-xs font-black uppercase">OPERADORES (MATRÍCULAS)</label>
-                  <button 
-                    onClick={() => adicionarOperador(despacho.id)}
-                    className="bg-black text-white px-2 py-1 text-xs font-bold uppercase hover:bg-gray-800"
-                  >
-                    + ADICIONAR OPERADOR
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                  {despacho.operadores.map((op, idx) => (
-                    <div key={idx} className="flex">
-                      <input 
-                        type="text"
-                        placeholder="MATRÍCULA"
-                        value={op}
-                        onChange={(e) => atualizarOperador(despacho.id, idx, e.target.value)}
-                        className="border-2 border-black border-r-0 p-2 outline-none uppercase font-bold text-sm bg-white w-full"
-                      />
-                      <button 
-                        onClick={() => removerOperador(despacho.id, idx)}
-                        className="bg-white border-2 border-black border-l-0 px-3 font-bold text-black hover:bg-gray-200 uppercase text-xs"
-                        disabled={despacho.operadores.length === 1}
-                      >
-                        X
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-          ))}
-        </div>
-
-        {/* Ações Finais */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
-          <button 
-            onClick={adicionarVeiculo}
-            className="bg-white text-black border-4 border-black px-8 py-4 font-black uppercase text-lg hover:bg-gray-200 transition-colors w-full sm:w-auto"
-          >
-            + ADICIONAR NOVO VEÍCULO À ROTA
-          </button>
-          
-          <button 
-            onClick={() => alert('DESPACHO SALVO COM SUCESSO! VEÍCULOS E MAPAS ATRIBUÍDOS.')}
-            className="bg-black text-white border-4 border-black px-8 py-4 font-black uppercase text-lg hover:bg-gray-800 transition-colors w-full sm:w-auto"
-          >
-            CONFIRMAR E SALVAR DESPACHOS
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // --- Componentes Antigos ---
-
-  const BateriasScreen = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        {/* Bloco: Rastreador OFF */}
-        <div className="xl:col-span-5 border-4 border-black bg-white flex flex-col">
-          <div className="bg-black text-white text-center py-2 border-b-4 border-black">
-            <h3 className="font-bold uppercase text-lg">RASTREADOR OFF</h3>
-            <p className="font-black text-2xl">221</p>
-          </div>
-          <div className="grid grid-cols-5 text-center divide-x-2 divide-black bg-gray-100 flex-1">
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">DESCARREGADO</div><div className="font-black">155</div></div>
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">RECARGA URGENTE</div><div className="font-black">23</div></div>
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">IMINÊNCIA RECARGA</div><div className="font-black">29</div></div>
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">CARGA TRABALHO</div><div className="font-black">11</div></div>
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">CARREGADO</div><div className="font-black">3</div></div>
-          </div>
-        </div>
-
-        {/* Bloco: Rastreador ON */}
-        <div className="xl:col-span-5 border-4 border-black bg-white flex flex-col">
-          <div className="bg-gray-800 text-white text-center py-2 border-b-4 border-black">
-            <h3 className="font-bold uppercase text-lg">RASTREADOR ON</h3>
-            <p className="font-black text-2xl">228</p>
-          </div>
-          <div className="grid grid-cols-5 text-center divide-x-2 divide-black bg-gray-100 flex-1">
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">DESCARREGADO</div><div className="font-black">42</div></div>
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">RECARGA URGENTE</div><div className="font-black">30</div></div>
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">IMINÊNCIA RECARGA</div><div className="font-black">74</div></div>
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">CARGA TRABALHO</div><div className="font-black">74</div></div>
-            <div className="p-2"><div className="text-[10px] font-bold uppercase mb-1">CARREGADO</div><div className="font-black">8</div></div>
-          </div>
-        </div>
-
-        {/* Bloco: Total */}
-        <div className="xl:col-span-2 border-4 border-black bg-black text-white flex flex-col items-center justify-center p-4">
-          <h3 className="font-bold uppercase text-lg">TOTAL</h3>
-          <p className="font-black text-4xl mt-2">449</p>
-        </div>
-      </div>
-
-      <div className="flex gap-4">
-        <div className="flex flex-col">
-          <label className="text-xs font-bold uppercase mb-1">FILTRAR POR NOME</label>
-          <input type="text" className="border-2 border-black p-2 outline-none w-64 uppercase font-bold text-sm" />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs font-bold uppercase mb-1">NÚMERO DE LINHAS</label>
-          <select className="border-2 border-black p-2 outline-none w-32 uppercase font-bold text-sm bg-white" defaultValue="25">
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="bg-white border-2 border-black overflow-hidden">
-        <div className="flex gap-2 p-2 border-b-2 border-black bg-gray-100">
-          <button className="bg-black text-white font-bold text-xs px-3 py-1 uppercase">PDF</button>
-          <button className="bg-black text-white font-bold text-xs px-3 py-1 uppercase">EXCEL</button>
-        </div>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-black text-white text-[11px] uppercase tracking-wider">
-              <th className="p-3 font-bold border-r border-gray-700">NOME</th>
-              <th className="p-3 font-bold border-r border-gray-700">PLACA</th>
-              <th className="p-3 font-bold border-r border-gray-700">STATUS DE BATERIA</th>
-              <th className="p-3 font-bold border-r border-gray-700">STATUS DE COMUNICAÇÃO</th>
-              <th className="p-3 font-bold border-r border-gray-700">BATERIA</th>
-              <th className="p-3 font-bold border-r border-gray-700">DIAS</th>
-              <th className="p-3 font-bold">DATA DE ÚLTIMA COMUNICAÇÃO</th>
-            </tr>
-          </thead>
-          <tbody className="text-xs font-bold text-gray-800">
-            <tr className="border-b border-gray-300 hover:bg-gray-100">
-              <td className="p-3 border-r border-gray-300">CARRINHO 01</td>
-              <td className="p-3 border-r border-gray-300">N/A</td>
-              <td className="p-3 border-r border-gray-300">DESCARREGADO</td>
-              <td className="p-3 border-r border-gray-300">RASTREADOR OFF</td>
-              <td className="p-3 border-r border-gray-300">0%</td>
-              <td className="p-3 border-r border-gray-300">2</td>
-              <td className="p-3">01/04/2026 14:30</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  const FiltroBuscaScreen = ({ isAgendamento }) => (
-    <div className="space-y-6">
-      <h2 className="text-xl font-black text-black uppercase mb-4 border-b-4 border-black pb-2">
-        FILTRO DE BUSCA {isAgendamento ? '- PRÉ-AGENDAMENTO' : '- CONSULTA DE ORDENS'}
-      </h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-100 p-6 border-2 border-black">
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">DATA INICIAL</label><input type="date" className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white" defaultValue="2026-04-03" /></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">DATA INICIAL (HH:MM)</label><input type="time" className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white" defaultValue="00:00" /></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">DATA FINAL</label><input type="date" className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white" defaultValue="2026-04-03" /></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">DATA FINAL (HH:MM)</label><input type="time" className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white" defaultValue="23:59" /></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">MODELO DE TRABALHO</label><select className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white"><option>EQUIPAMENTO, EQUIPAM...</option></select></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">STATUS</label><select className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white"><option>ATIVO, INATIVO, PENDENTE</option></select></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">TIPO DE SERVIÇO</label><select className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white"><option>SELECIONE...</option></select></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">SUBPREFEITURA</label><select className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white"><option>SELECIONE...</option></select></div>
-        <div className="flex flex-col md:col-span-2"><label className="text-xs font-bold uppercase mb-1">PLANO DE TRABALHO</label><select className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white"><option>SELECIONE...</option></select></div>
-        <div className="md:col-span-4 mt-2"><button className="bg-black text-white px-8 py-3 font-bold uppercase border-2 border-black hover:bg-gray-800 transition-colors w-max">BUSCAR</button></div>
-      </div>
-
-      <div className="bg-white border-2 border-black overflow-hidden mt-6">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-black text-white text-[11px] uppercase tracking-wider">
-              <th className="p-3 font-bold border-r border-gray-700">NOME</th>
-              <th className="p-3 font-bold border-r border-gray-700">MODELO DE TRABALHO</th>
-              <th className="p-3 font-bold border-r border-gray-700">STATUS</th>
-              <th className="p-3 font-bold border-r border-gray-700">DATA PLANEJADA</th>
-              <th className="p-3 font-bold border-r border-gray-700">DATA MÁXIMA EXECUÇÃO</th>
-              <th className="p-3 font-bold">VEÍCULOS</th>
-            </tr>
-          </thead>
-          <tbody className="text-xs font-bold text-gray-800">
-            <tr><td colSpan="6" className="p-6 text-center text-gray-500 uppercase">NENHUM REGISTRO ENCONTRADO PARA O FILTRO APLICADO</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  const ExecucaoScreen = () => (
-    <div className="space-y-6">
-      <h2 className="text-xl font-black text-black uppercase mb-4 border-b-4 border-black pb-2">FILTRO DE BUSCA - PERCENTUAL</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-100 p-6 border-2 border-black">
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">DATA INÍCIO</label><input type="date" className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white" /></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">DATA FIM</label><input type="date" className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white" /></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">STATUS</label><select className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white"><option>ATIVO, CANCELADO, ENCER...</option></select></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">SUBPREFEITURA</label><select className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white"><option>SELECIONE...</option></select></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">TIPO DE SERVIÇO</label><select className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white"><option>SELECIONE...</option></select></div>
-        <div className="flex flex-col"><label className="text-xs font-bold uppercase mb-1">PLANO DE TRABALHO</label><select className="border-2 border-black p-2 outline-none uppercase font-bold text-sm bg-white"><option>SELECIONE...</option></select></div>
-        <div className="md:col-span-3 mt-2"><button className="bg-black text-white px-8 py-3 font-bold uppercase border-2 border-black hover:bg-gray-800 transition-colors w-max">BUSCAR</button></div>
-      </div>
-      <div className="bg-white border-2 border-black overflow-hidden mt-6">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-black text-white text-[10px] uppercase tracking-wider">
-              <th className="p-3 font-bold border-r border-gray-700">STATUS</th>
-              <th className="p-3 font-bold border-r border-gray-700">PLANO</th>
-              <th className="p-3 font-bold border-r border-gray-700">SUBPREFEITURA</th>
-              <th className="p-3 font-bold border-r border-gray-700">TIPO DE SERVIÇO</th>
-              <th className="p-3 font-bold border-r border-gray-700 text-center">% DE EXECUÇÃO</th>
-              <th className="p-3 font-bold border-r border-gray-700">EQUIPAMENTOS</th>
-              <th className="p-3 font-bold border-r border-gray-700">MOTORISTAS</th>
-              <th className="p-3 font-bold">OPERADORES</th>
-            </tr>
-          </thead>
-          <tbody className="text-xs font-bold text-gray-800">
-            <tr><td colSpan="8" className="p-6 text-center text-gray-500 uppercase">NENHUM REGISTRO ENCONTRADO</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  const GenericScreen = ({ title }) => (
-    <div className="flex flex-col items-center justify-center h-64 text-black border-4 border-black bg-white">
-      <h2 className="text-2xl font-bold uppercase mb-2">{title}</h2>
-      <p className="font-bold uppercase text-gray-600">TELA EM DESENVOLVIMENTO</p>
-    </div>
-  );
-
-  // Renderizador principal
-  const renderContent = () => {
-    switch (activeMenu) {
-      case 'lancamento': return <LancamentoDespachoScreen />;
-      case 'despacho': return <FiltroBuscaScreen isAgendamento={false} />;
-      case 'agendamento': return <FiltroBuscaScreen isAgendamento={true} />;
-      case 'percentual': return <ExecucaoScreen />;
-      case 'baterias': return <BateriasScreen />;
-      case 'motoristas': return <GenericScreen title="CADASTRO DE MOTORISTAS" />;
-      case 'operadores': return <GenericScreen title="CADASTRO DE OPERADORES" />;
-      default: return <LancamentoDespachoScreen />;
-    }
-  };
-
-  return (
-    <div style={{ fontFamily: 'Arial, Helvetica, sans-serif' }} className="flex h-screen bg-white">
-      
-      {/* Sidebar Lateral */}
-      <aside className={`bg-black text-white transition-all duration-300 flex flex-col border-r-4 border-black ${isSidebarOpen ? 'w-72' : 'w-20'}`}>
-        <div className="h-16 flex items-center justify-between px-6 border-b-2 border-gray-800 bg-black flex-shrink-0">
-          {isSidebarOpen && <span className="font-black text-2xl tracking-widest uppercase">ECOLIMP</span>}
-          <button 
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-            className="p-2 hover:bg-white hover:text-black transition-colors font-bold text-sm border border-gray-800"
-          >
-            {isSidebarOpen ? 'FECHAR' : 'MENU'}
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto py-6 bg-black">
-          {menuItems.map((group, idx) => (
-            <div key={idx} className="mb-8">
-              {isSidebarOpen && (
-                <div className="px-6 text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 border-b border-gray-800 pb-2 mx-6">
-                  {group.category}
-                </div>
-              )}
-              <ul className="space-y-1 px-4">
-                {group.items.map((item) => {
-                  const isActive = activeMenu === item.id;
-                  return (
-                    <li key={item.id}>
-                      <button
-                        onClick={() => setActiveMenu(item.id)}
-                        className={`w-full text-left px-4 py-3 font-bold uppercase text-xs tracking-wider transition-all border-2 ${
-                          isActive 
-                            ? 'bg-white text-black border-white' 
-                            : 'bg-black text-gray-400 border-black hover:border-gray-600 hover:text-white'
-                        } ${!isSidebarOpen && 'text-center px-1'}`}
-                        title={!isSidebarOpen ? item.label : ""}
-                      >
-                        {isSidebarOpen ? item.label : item.label.substring(0, 3)}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </div>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECOLIMP - Gestão de Operações</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700;900&family=Inter:wght@400;700;900&display=swap');
         
-        {/* Perfil do Usuário */}
-        <div className="p-4 border-t-2 border-gray-800 flex items-center bg-black flex-shrink-0">
-          <div className="w-10 h-10 bg-white text-black border-2 border-gray-500 flex items-center justify-center flex-shrink-0">
-            <span className="font-black text-sm">JS</span>
-          </div>
-          {isSidebarOpen && (
-            <div className="ml-4 overflow-hidden">
-              <p className="text-sm font-bold text-white uppercase truncate">JOÃO SUPERVISOR</p>
-              <p className="text-xs text-gray-500 font-bold uppercase truncate">ID: 99482</p>
-            </div>
-          )}
-        </div>
-      </aside>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Neo-brutalist grid background */
+            background-color: #f4f4f0;
+            background-image: radial-gradient(#000000 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: -19px -19px;
+        }
 
-      {/* Área Principal de Conteúdo */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Cabeçalho */}
-        <header className="h-16 bg-white border-b-4 border-black flex items-center justify-between px-8 z-10 flex-shrink-0">
-          <h1 className="text-xl font-black text-black uppercase tracking-wide">
-            {menuItems.flatMap(g => g.items).find(i => i.id === activeMenu)?.label}
-          </h1>
-          <div className="flex items-center gap-4 text-black font-bold text-sm uppercase">
-            <button className="border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors flex gap-2 items-center">
-              AVISOS
-              <span className="bg-black text-white px-2 py-0.5 text-xs">0</span>
-            </button>
-            <button className="border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors">
-              SAIR
-            </button>
-          </div>
-        </header>
+        h1, h2, h3, h4, .font-display {
+            font-family: 'Space Grotesk', sans-serif;
+        }
 
-        {/* Conteúdo Dinâmico */}
-        <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
-          <div className="max-w-7xl mx-auto">
-            {renderContent()}
-          </div>
-        </div>
-      </main>
+        /* Custom Scrollbar Neo-Brutalist */
+        ::-webkit-scrollbar { width: 12px; height: 12px; }
+        ::-webkit-scrollbar-track { background: #fff; border-left: 4px solid #000; }
+        ::-webkit-scrollbar-thumb { background: #00E676; border: 4px solid #000; }
+        ::-webkit-scrollbar-thumb:hover { background: #000; }
 
-    </div>
-  );
-}
+        /* Neo Brutalist utilities */
+        .neo-shadow { box-shadow: 6px 6px 0px 0px rgba(0,0,0,1); }
+        .neo-shadow-sm { box-shadow: 4px 4px 0px 0px rgba(0,0,0,1); }
+        .neo-button { transition: all 0.1s ease; }
+        .neo-button:hover { transform: translate(2px, 2px); box-shadow: 4px 4px 0px 0px rgba(0,0,0,1); }
+        .neo-button:active { transform: translate(6px, 6px); box-shadow: 0px 0px 0px 0px rgba(0,0,0,1); }
+        
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-toast { animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Ícones SVG reutilizáveis
+        const Icons = {
+            Menu: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
+            X: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+            Truck: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>,
+            Battery: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><rect x="2" y="7" width="16" height="10"></rect><line x1="22" y1="11" x2="22" y2="13"></line></svg>,
+            Users: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
+            ClipboardList: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><line x1="12" y1="11" x2="16" y2="11"></line><line x1="12" y1="16" x2="16" y2="16"></line><line x1="8" y1="11" x2="8.01" y2="11"></line><line x1="8" y1="16" x2="8.01" y2="16"></line></svg>,
+            CheckCircle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
+            Plus: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
+            Edit: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
+            Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        };
+
+        function App() {
+            const [activeMenu, setActiveMenu] = useState('lancamento');
+            const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+            const [toasts, setToasts] = useState([]);
+
+            const showToast = (message, type = 'success') => {
+                const id = Date.now();
+                setToasts(prev => [...prev, { id, message, type }]);
+                setTimeout(() => {
+                    setToasts(prev => prev.filter(t => t.id !== id));
+                }, 4000);
+            };
+
+            const menuItems = [
+                {
+                    category: "OPERAÇÃO",
+                    icon: Icons.Truck,
+                    items: [
+                        { id: 'lancamento', label: 'NOVO DESPACHO' },
+                        { id: 'despacho', label: 'CONSULTA ORDENS' },
+                        { id: 'agendamento', label: 'PRÉ-AGENDAMENTO' },
+                        { id: 'percentual', label: 'PERCENTUAL EXECUÇÃO' },
+                    ]
+                },
+                {
+                    category: "EQUIPAMENTOS",
+                    icon: Icons.Battery,
+                    items: [
+                        { id: 'baterias', label: 'STATUS BATERIAS' },
+                    ]
+                },
+                {
+                    category: "CADASTROS",
+                    icon: Icons.Users,
+                    items: [
+                        { id: 'motoristas', label: 'MOTORISTAS' },
+                        { id: 'operadores', label: 'COLETORES/OPERAD.' },
+                    ]
+                }
+            ];
+
+            // --- COMPONENTE: Lançamento de Despacho Otimizado ---
+            const LancamentoDespachoScreen = () => {
+                const [despachos, setDespachos] = useState([
+                    { id: 1, rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }
+                ]);
+
+                const carregarProgramacaoAnterior = () => {
+                    setDespachos([
+                        { id: 1, rastreador: 'RST-1001', statusRastreador: 'ATIVO', caminhao: 'ABC-1234', motorista: 'JOÃO SILVA', operadores: ['99101', '99102'], mapas: ['CV100200MT001'] },
+                        { id: 2, rastreador: 'RST-1002', statusRastreador: 'MANUTENÇÃO', caminhao: 'XYZ-9876', motorista: 'CARLOS MENDES', operadores: ['99201'], mapas: ['CV100200MT003'] },
+                    ]);
+                    showToast("Programação anterior carregada com sucesso!", "success");
+                };
+
+                const adicionarVeiculo = () => setDespachos([...despachos, { id: Date.now(), rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }]);
+                const removerVeiculo = (id) => setDespachos(despachos.filter(d => d.id !== id));
+                const atualizarVeiculoCampo = (id, campo, valor) => setDespachos(despachos.map(d => d.id === id ? { ...d, [campo]: valor } : d));
+
+                const manipularArray = (id, chave, acao, index, valor) => {
+                    setDespachos(despachos.map(d => {
+                        if (d.id !== id) return d;
+                        const novoArray = [...d[chave]];
+                        if (acao === 'add') novoArray.push('');
+                        else if (acao === 'remove') novoArray.splice(index, 1);
+                        else if (acao === 'update') novoArray[index] = valor;
+                        return { ...d, [chave]: novoArray };
+                    }));
+                };
+
+                return (
+                    <div className="space-y-8 animate-fadeIn">
+                        {/* Header Section */}
+                        <div className="flex flex-col xl:flex-row justify-between xl:items-end gap-6 border-b-4 border-black pb-6">
+                            <div>
+                                <h2 className="text-4xl font-black text-black uppercase font-display tracking-tight">Lançamento de Despachos</h2>
+                                <p className="font-bold text-gray-600 uppercase mt-2 bg-[#FFE600] inline-block px-2 border-2 border-black">Vincule múltiplos mapas e rastreadores numa única tela.</p>
+                            </div>
+                            <div className="flex gap-4">
+                                <button onClick={carregarProgramacaoAnterior} className="neo-button neo-shadow-sm bg-white text-black px-6 py-3 border-4 border-black font-black uppercase text-sm">
+                                    ↻ Carregar Anterior
+                                </button>
+                                <button onClick={() => setDespachos([{ id: Date.now(), rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }])} className="neo-button neo-shadow-sm bg-red-500 text-white px-6 py-3 border-4 border-black font-black uppercase text-sm">
+                                    Limpar
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Cards de Despacho */}
+                        <div className="space-y-8">
+                            {despachos.map((despacho, index) => (
+                                <div key={despacho.id} className="bg-white border-4 border-black neo-shadow p-6 relative transition-all">
+                                    
+                                    {/* Número da Rota "Badge" */}
+                                    <div className="absolute -top-4 -left-4 bg-[#00E676] border-4 border-black w-12 h-12 flex items-center justify-center font-black text-xl neo-shadow-sm">
+                                        {index + 1}
+                                    </div>
+
+                                    <div className="flex justify-between items-center mb-6 ml-10 border-b-4 border-black pb-4">
+                                        <h3 className="font-black text-2xl uppercase font-display tracking-tighter">Veículo da Rota</h3>
+                                        <button onClick={() => removerVeiculo(despacho.id)} className="neo-button bg-black text-white hover:bg-red-600 font-bold px-4 py-2 text-xs uppercase border-2 border-black">
+                                            ✕ Remover
+                                        </button>
+                                    </div>
+
+                                    {/* Grid Principal de Inputs */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                                        <div className="flex flex-col group">
+                                            <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Rastreador & Status</label>
+                                            <div className="flex border-4 border-black neo-shadow-sm">
+                                                <input type="text" placeholder="EX: RST-1001" value={despacho.rastreador} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'rastreador', e.target.value)} className="w-2/3 p-3 outline-none uppercase font-black text-lg focus:bg-[#FFE600] transition-colors border-r-4 border-black" />
+                                                <select value={despacho.statusRastreador} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'statusRastreador', e.target.value)} className={`w-1/3 p-3 outline-none uppercase font-bold text-sm cursor-pointer ${despacho.statusRastreador === 'ATIVO' ? 'bg-[#00E676]' : despacho.statusRastreador === 'MANUTENÇÃO' ? 'bg-[#FF3D00] text-white' : 'bg-gray-200'}`}>
+                                                    <option value="ATIVO">ATIVO</option>
+                                                    <option value="DESATIVADO">OFF</option>
+                                                    <option value="MANUTENÇÃO">MANUT.</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex flex-col group">
+                                            <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Placa do Caminhão</label>
+                                            <input type="text" placeholder="EX: ABC-1234" value={despacho.caminhao} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'caminhao', e.target.value)} className="border-4 border-black p-3 outline-none uppercase font-black text-lg neo-shadow-sm focus:bg-[#FFE600] transition-colors" />
+                                        </div>
+
+                                        <div className="flex flex-col group">
+                                            <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Motorista Responsável</label>
+                                            <input type="text" placeholder="NOME DO MOTORISTA" value={despacho.motorista} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'motorista', e.target.value)} className="border-4 border-black p-3 outline-none uppercase font-black text-lg neo-shadow-sm focus:bg-[#FFE600] transition-colors" />
+                                        </div>
+                                    </div>
+
+                                    {/* Seções de Arrays (Mapas e Operadores) */}
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                                        
+                                        {/* Box Mapas */}
+                                        <div className="bg-[#f4f4f0] border-4 border-black p-5 neo-shadow-sm">
+                                            <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
+                                                <label className="text-sm font-black uppercase flex items-center gap-2"><Icons.ClipboardList /> Mapas Vinculados</label>
+                                                <button onClick={() => manipularArray(despacho.id, 'mapas', 'add')} className="bg-[#00E676] text-black border-2 border-black px-3 py-1 text-xs font-black uppercase hover:bg-black hover:text-white transition-colors">
+                                                    + Mapa
+                                                </button>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {despacho.mapas.map((mapa, idx) => (
+                                                    <div key={idx} className="flex border-2 border-black bg-white focus-within:bg-[#FFE600] transition-colors">
+                                                        <span className="bg-black text-white px-3 py-2 font-black border-r-2 border-black">{idx + 1}</span>
+                                                        <input type="text" placeholder="CÓDIGO (EX: CV100)" value={mapa} onChange={(e) => manipularArray(despacho.id, 'mapas', 'update', idx, e.target.value)} className="w-full p-2 outline-none uppercase font-bold text-sm bg-transparent" />
+                                                        <button onClick={() => manipularArray(despacho.id, 'mapas', 'remove', idx)} disabled={despacho.mapas.length === 1} className="bg-red-500 text-white font-black px-4 border-l-2 border-black hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">X</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Box Operadores */}
+                                        <div className="bg-[#f4f4f0] border-4 border-black p-5 neo-shadow-sm">
+                                            <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
+                                                <label className="text-sm font-black uppercase flex items-center gap-2"><Icons.Users /> Operadores (Matrícula)</label>
+                                                <button onClick={() => manipularArray(despacho.id, 'operadores', 'add')} className="bg-[#00E676] text-black border-2 border-black px-3 py-1 text-xs font-black uppercase hover:bg-black hover:text-white transition-colors">
+                                                    + Operador
+                                                </button>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {despacho.operadores.map((op, idx) => (
+                                                    <div key={idx} className="flex border-2 border-black bg-white focus-within:bg-[#FFE600] transition-colors">
+                                                        <input type="text" placeholder="MATRÍCULA" value={op} onChange={(e) => manipularArray(despacho.id, 'operadores', 'update', idx, e.target.value)} className="w-full p-2 outline-none uppercase font-bold text-sm bg-transparent" />
+                                                        <button onClick={() => manipularArray(despacho.id, 'operadores', 'remove', idx)} disabled={despacho.operadores.length === 1} className="bg-red-500 text-white font-black px-3 border-l-2 border-black hover:bg-red-700 disabled:opacity-50">X</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Barra de Ações Fixa no Fundo */}
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-6 pt-6 border-t-4 border-black mt-8">
+                            <button onClick={adicionarVeiculo} className="neo-button bg-white text-black border-4 border-black px-8 py-4 font-black uppercase text-lg w-full sm:w-auto neo-shadow flex items-center justify-center gap-2">
+                                <span>+</span> Novo Veículo à Rota
+                            </button>
+                            
+                            <button onClick={() => showToast("Despachos salvos e confirmados na base de dados!", "success")} className="neo-button bg-[#00E676] text-black border-4 border-black px-10 py-4 font-black uppercase text-lg w-full sm:w-auto neo-shadow flex items-center justify-center gap-2">
+                                <Icons.CheckCircle /> Confirmar e Salvar
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- Componente: Baterias ---
+            const BateriasScreen = () => (
+                <div className="space-y-8 animate-fadeIn">
+                    <h2 className="text-4xl font-black text-black uppercase font-display border-b-4 border-black pb-4 mb-6">Status da Frota e Baterias</h2>
+                    
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        <div className="border-4 border-black bg-white neo-shadow flex flex-col">
+                            <div className="bg-[#FF3D00] text-white text-center py-4 border-b-4 border-black">
+                                <h3 className="font-black uppercase text-xl font-display">Rastreador OFF</h3>
+                                <p className="font-black text-6xl tracking-tighter mt-2">221</p>
+                            </div>
+                            <div className="flex-1 p-6 bg-[#f4f4f0] grid grid-cols-2 gap-4">
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Descarregado</p><p className="font-black text-2xl">155</p></div>
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Recarga Urgente</p><p className="font-black text-2xl">23</p></div>
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm col-span-2"><p className="text-[10px] font-black uppercase text-gray-500">Iminência de Recarga</p><p className="font-black text-2xl">43</p></div>
+                            </div>
+                        </div>
+
+                        <div className="border-4 border-black bg-white neo-shadow flex flex-col">
+                            <div className="bg-[#00E676] text-black text-center py-4 border-b-4 border-black">
+                                <h3 className="font-black uppercase text-xl font-display">Rastreador ON</h3>
+                                <p className="font-black text-6xl tracking-tighter mt-2">228</p>
+                            </div>
+                            <div className="flex-1 p-6 bg-[#f4f4f0] grid grid-cols-2 gap-4">
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Carregado</p><p className="font-black text-2xl">82</p></div>
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Carga Trabalho</p><p className="font-black text-2xl">74</p></div>
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm col-span-2"><p className="text-[10px] font-black uppercase text-gray-500">Iminência de Recarga</p><p className="font-black text-2xl">72</p></div>
+                            </div>
+                        </div>
+
+                        <div className="border-4 border-black bg-black text-white neo-shadow flex flex-col items-center justify-center p-8 relative overflow-hidden">
+                            <div className="absolute -right-10 -bottom-10 opacity-10 text-[200px]"><Icons.Truck /></div>
+                            <h3 className="font-black uppercase text-2xl text-[#FFE600] font-display z-10">Total da Frota</h3>
+                            <p className="font-black text-8xl mt-4 z-10">449</p>
+                            <button className="mt-8 neo-button bg-white text-black font-black uppercase px-6 py-3 border-2 border-black text-sm z-10 w-full">Gerar Relatório</button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white border-4 border-black neo-shadow overflow-hidden mt-8">
+                        <div className="flex gap-4 p-4 border-b-4 border-black bg-[#FFE600] items-center">
+                            <span className="font-black uppercase flex-1">Listagem Detalhada</span>
+                            <button className="neo-button bg-black text-white font-bold text-xs px-4 py-2 uppercase border-2 border-black">PDF</button>
+                            <button className="neo-button bg-white text-black font-bold text-xs px-4 py-2 uppercase border-2 border-black">EXCEL</button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-max">
+                                <thead>
+                                    <tr className="bg-black text-white text-xs uppercase tracking-wider">
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Equipamento</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Placa</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Status de Bateria</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Comunicação</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Bateria %</th>
+                                        <th className="p-4 font-black">Última Comunicação</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm font-bold text-gray-800">
+                                    <tr className="border-b-2 border-gray-200 hover:bg-[#FFE600] transition-colors cursor-pointer">
+                                        <td className="p-4 border-r-2 border-gray-200">CARRINHO 01</td>
+                                        <td className="p-4 border-r-2 border-gray-200">N/A</td>
+                                        <td className="p-4 border-r-2 border-gray-200"><span className="bg-[#FF3D00] text-white px-2 py-1 border-2 border-black text-xs font-black">DESCARREGADO</span></td>
+                                        <td className="p-4 border-r-2 border-gray-200">OFF</td>
+                                        <td className="p-4 border-r-2 border-gray-200">0%</td>
+                                        <td className="p-4">01/04/2026 14:30</td>
+                                    </tr>
+                                    <tr className="border-b-2 border-gray-200 hover:bg-[#FFE600] transition-colors cursor-pointer bg-gray-50">
+                                        <td className="p-4 border-r-2 border-gray-200">CARRINHO 02</td>
+                                        <td className="p-4 border-r-2 border-gray-200">N/A</td>
+                                        <td className="p-4 border-r-2 border-gray-200"><span className="bg-[#00E676] text-black px-2 py-1 border-2 border-black text-xs font-black">CARREGADO</span></td>
+                                        <td className="p-4 border-r-2 border-gray-200">ON</td>
+                                        <td className="p-4 border-r-2 border-gray-200">98%</td>
+                                        <td className="p-4">04/04/2026 07:15</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // --- Componente: Cadastro de Motoristas ---
+            const CadastroMotoristasScreen = ({ showToast }) => {
+                const [motoristas, setMotoristas] = useState([
+                    { id: 1, matricula: 'MOT-1001', nome: 'JOÃO DA SILVA', cnh: '12345678900', categoria: 'D', status: 'ATIVO' },
+                    { id: 2, matricula: 'MOT-1002', nome: 'CARLOS PEREIRA', cnh: '09876543211', categoria: 'E', status: 'ATIVO' },
+                    { id: 3, matricula: 'MOT-1003', nome: 'ROBERTO ALVES', cnh: '11223344556', categoria: 'D', status: 'INATIVO' },
+                ]);
+                const [showForm, setShowForm] = useState(false);
+
+                const salvarMotorista = (e) => {
+                    e.preventDefault();
+                    showToast("Motorista cadastrado com sucesso!", "success");
+                    setShowForm(false);
+                };
+
+                const removerMotorista = (id) => {
+                    setMotoristas(motoristas.filter(m => m.id !== id));
+                    showToast("Registro removido.", "error");
+                };
+
+                return (
+                    <div className="space-y-8 animate-fadeIn">
+                        <div className="flex flex-col md:flex-row justify-between md:items-end gap-6 border-b-4 border-black pb-6">
+                            <div>
+                                <h2 className="text-4xl font-black text-black uppercase font-display tracking-tight">Motoristas</h2>
+                                <p className="font-bold text-gray-600 uppercase mt-2">Gestão de condutores de frota.</p>
+                            </div>
+                            <button onClick={() => setShowForm(!showForm)} className="neo-button neo-shadow-sm bg-black text-white px-6 py-3 border-4 border-black font-black uppercase text-sm flex items-center gap-2">
+                                {showForm ? <Icons.X /> : <Icons.Plus />} 
+                                {showForm ? 'Cancelar' : 'Novo Motorista'}
+                            </button>
+                        </div>
+
+                        {showForm && (
+                            <div className="bg-[#FFE600] border-4 border-black neo-shadow p-6 mb-8 animate-fadeIn">
+                                <h3 className="font-black text-xl uppercase mb-4 border-b-2 border-black pb-2">Cadastrar Novo Motorista</h3>
+                                <form onSubmit={salvarMotorista} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                                    <div className="flex flex-col group">
+                                        <label className="text-xs font-black uppercase mb-1">Matrícula</label>
+                                        <input type="text" required placeholder="EX: MOT-0000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                    </div>
+                                    <div className="flex flex-col group xl:col-span-2">
+                                        <label className="text-xs font-black uppercase mb-1">Nome Completo</label>
+                                        <input type="text" required placeholder="NOME DO MOTORISTA" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                    </div>
+                                    <div className="flex flex-col group">
+                                        <label className="text-xs font-black uppercase mb-1">Status</label>
+                                        <select className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                            <option>ATIVO</option>
+                                            <option>INATIVO</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col group xl:col-span-2">
+                                        <label className="text-xs font-black uppercase mb-1">Nº CNH</label>
+                                        <input type="text" required placeholder="00000000000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                    </div>
+                                    <div className="flex flex-col group">
+                                        <label className="text-xs font-black uppercase mb-1">Categoria CNH</label>
+                                        <select className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                            <option>B</option><option>C</option><option>D</option><option>E</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-end">
+                                        <button type="submit" className="neo-button bg-white text-black border-4 border-black px-6 py-3 font-black uppercase w-full hover:bg-black hover:text-white transition-colors">
+                                            Salvar Registro
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        <div className="bg-white border-4 border-black neo-shadow overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-max">
+                                <thead>
+                                    <tr className="bg-black text-white text-xs uppercase tracking-wider">
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Matrícula</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Nome do Condutor</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">CNH</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Cat.</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Status</th>
+                                        <th className="p-4 font-black text-center w-24">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm font-bold text-gray-800">
+                                    {motoristas.map((m) => (
+                                        <tr key={m.id} className="border-b-2 border-gray-200 hover:bg-[#f4f4f0] transition-colors">
+                                            <td className="p-4 border-r-2 border-gray-200">{m.matricula}</td>
+                                            <td className="p-4 border-r-2 border-gray-200">{m.nome}</td>
+                                            <td className="p-4 border-r-2 border-gray-200">{m.cnh}</td>
+                                            <td className="p-4 border-r-2 border-gray-200"><span className="bg-black text-white px-2 py-1 font-black">{m.categoria}</span></td>
+                                            <td className="p-4 border-r-2 border-gray-200">
+                                                <span className={`px-2 py-1 border-2 border-black text-xs font-black ${m.status === 'ATIVO' ? 'bg-[#00E676] text-black' : 'bg-gray-200 text-gray-500'}`}>
+                                                    {m.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-center flex justify-center gap-2">
+                                                <button className="bg-[#FFE600] border-2 border-black p-2 hover:bg-black hover:text-[#FFE600] transition-colors"><Icons.Edit /></button>
+                                                <button onClick={() => removerMotorista(m.id)} className="bg-[#FF3D00] text-white border-2 border-black p-2 hover:bg-black transition-colors"><Icons.Trash /></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- Componente: Cadastro de Operadores/Coletores ---
+            const CadastroOperadoresScreen = ({ showToast }) => {
+                const [operadores, setOperadores] = useState([
+                    { id: 1, matricula: '99101', nome: 'MATEUS COSTA', turno: 'DIURNO', status: 'ATIVO' },
+                    { id: 2, matricula: '99102', nome: 'LUCAS MARTINS', turno: 'DIURNO', status: 'ATIVO' },
+                    { id: 3, matricula: '99201', nome: 'FERNANDO SOUZA', turno: 'NOTURNO', status: 'FÉRIAS' },
+                ]);
+                const [showForm, setShowForm] = useState(false);
+
+                const salvarOperador = (e) => {
+                    e.preventDefault();
+                    showToast("Operador/Coletor cadastrado com sucesso!", "success");
+                    setShowForm(false);
+                };
+
+                const removerOperador = (id) => {
+                    setOperadores(operadores.filter(o => o.id !== id));
+                    showToast("Registro removido.", "error");
+                };
+
+                return (
+                    <div className="space-y-8 animate-fadeIn">
+                        <div className="flex flex-col md:flex-row justify-between md:items-end gap-6 border-b-4 border-black pb-6">
+                            <div>
+                                <h2 className="text-4xl font-black text-black uppercase font-display tracking-tight">Coletores & Operadores</h2>
+                                <p className="font-bold text-gray-600 uppercase mt-2">Gestão de equipe de campo.</p>
+                            </div>
+                            <button onClick={() => setShowForm(!showForm)} className="neo-button neo-shadow-sm bg-black text-white px-6 py-3 border-4 border-black font-black uppercase text-sm flex items-center gap-2">
+                                {showForm ? <Icons.X /> : <Icons.Plus />} 
+                                {showForm ? 'Cancelar' : 'Novo Coletor'}
+                            </button>
+                        </div>
+
+                        {showForm && (
+                            <div className="bg-[#00E676] border-4 border-black neo-shadow p-6 mb-8 animate-fadeIn">
+                                <h3 className="font-black text-xl uppercase mb-4 border-b-2 border-black pb-2">Cadastrar Novo Coletor/Operador</h3>
+                                <form onSubmit={salvarOperador} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                                    <div className="flex flex-col group">
+                                        <label className="text-xs font-black uppercase mb-1">Matrícula ID</label>
+                                        <input type="text" required placeholder="EX: 99000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                    </div>
+                                    <div className="flex flex-col group xl:col-span-2">
+                                        <label className="text-xs font-black uppercase mb-1">Nome Completo</label>
+                                        <input type="text" required placeholder="NOME DO COLETOR" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                    </div>
+                                    <div className="flex flex-col group">
+                                        <label className="text-xs font-black uppercase mb-1">Turno Base</label>
+                                        <select className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                            <option>DIURNO</option>
+                                            <option>NOTURNO</option>
+                                            <option>MADRUGADA</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col group">
+                                        <label className="text-xs font-black uppercase mb-1">Status</label>
+                                        <select className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                            <option>ATIVO</option>
+                                            <option>INATIVO</option>
+                                            <option>FÉRIAS</option>
+                                            <option>AFASTADO</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-end xl:col-start-4">
+                                        <button type="submit" className="neo-button bg-black text-white border-4 border-black px-6 py-3 font-black uppercase w-full hover:bg-gray-800 transition-colors">
+                                            Salvar Registro
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        <div className="bg-white border-4 border-black neo-shadow overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-max">
+                                <thead>
+                                    <tr className="bg-black text-white text-xs uppercase tracking-wider">
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Matrícula</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700 w-1/2">Nome do Coletor</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Turno</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Status</th>
+                                        <th className="p-4 font-black text-center w-24">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm font-bold text-gray-800">
+                                    {operadores.map((o) => (
+                                        <tr key={o.id} className="border-b-2 border-gray-200 hover:bg-[#f4f4f0] transition-colors">
+                                            <td className="p-4 border-r-2 border-gray-200 font-black">{o.matricula}</td>
+                                            <td className="p-4 border-r-2 border-gray-200">{o.nome}</td>
+                                            <td className="p-4 border-r-2 border-gray-200">{o.turno}</td>
+                                            <td className="p-4 border-r-2 border-gray-200">
+                                                <span className={`px-2 py-1 border-2 border-black text-xs font-black ${o.status === 'ATIVO' ? 'bg-[#00E676] text-black' : o.status === 'FÉRIAS' ? 'bg-[#FFE600] text-black' : 'bg-gray-200 text-gray-500'}`}>
+                                                    {o.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-center flex justify-center gap-2">
+                                                <button className="bg-[#FFE600] border-2 border-black p-2 hover:bg-black hover:text-[#FFE600] transition-colors"><Icons.Edit /></button>
+                                                <button onClick={() => removerOperador(o.id)} className="bg-[#FF3D00] text-white border-2 border-black p-2 hover:bg-black transition-colors"><Icons.Trash /></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
+            };
+
+            // Generic Placeholder para outras telas
+            const GenericScreen = ({ title }) => (
+                <div className="flex flex-col items-center justify-center h-[70vh] text-black border-4 border-black bg-white neo-shadow p-12 text-center relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-4 bg-[#FFE600] border-b-4 border-black"></div>
+                    <h2 className="text-5xl font-black uppercase font-display mb-6 tracking-tighter">{title}</h2>
+                    <p className="font-bold uppercase text-gray-500 max-w-lg text-lg border-2 border-black p-4 bg-[#f4f4f0]">
+                        Módulo atualmente em arquitetura técnica. Em breve disponível com a nova interface.
+                    </p>
+                    <button onClick={() => setActiveMenu('lancamento')} className="mt-8 neo-button bg-black text-white font-black px-8 py-4 uppercase border-4 border-black neo-shadow-sm">
+                        Voltar para Operação
+                    </button>
+                </div>
+            );
+
+            const renderContent = () => {
+                switch (activeMenu) {
+                    case 'lancamento': return <LancamentoDespachoScreen />;
+                    case 'baterias': return <BateriasScreen />;
+                    case 'motoristas': return <CadastroMotoristasScreen showToast={showToast} />;
+                    case 'operadores': return <CadastroOperadoresScreen showToast={showToast} />;
+                    default: return <GenericScreen title={menuItems.flatMap(g => g.items).find(i => i.id === activeMenu)?.label || 'TELA EM DESENVOLVIMENTO'} />;
+                }
+            };
+
+            return (
+                <div className="flex h-screen bg-[#f4f4f0] overflow-hidden text-black">
+                    
+                    {/* Toasts Container */}
+                    <div className="fixed top-20 right-8 z-50 flex flex-col gap-4 pointer-events-none">
+                        {toasts.map(toast => (
+                            <div key={toast.id} className={`animate-toast pointer-events-auto border-4 border-black p-4 neo-shadow flex items-center gap-4 ${toast.type === 'success' ? 'bg-[#00E676] text-black' : 'bg-[#FF3D00] text-white'}`}>
+                                <Icons.CheckCircle />
+                                <span className="font-black uppercase tracking-tight">{toast.message}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Sidebar Lateral */}
+                    <aside className={`bg-white transition-all duration-300 flex flex-col border-r-4 border-black shadow-[6px_0_0_0_rgba(0,0,0,1)] z-20 relative ${isSidebarOpen ? 'w-80' : 'w-24'}`}>
+                        <div className="h-20 flex items-center justify-between px-6 border-b-4 border-black bg-[#FFE600] flex-shrink-0">
+                            {isSidebarOpen && <span className="font-black text-3xl font-display tracking-tighter uppercase">Ecolimp.</span>}
+                            <button 
+                                onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+                                className="neo-button bg-black text-white p-2 hover:bg-white hover:text-black transition-colors font-bold border-2 border-black flex-shrink-0"
+                            >
+                                {isSidebarOpen ? <Icons.X /> : <Icons.Menu />}
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto py-6">
+                            {menuItems.map((group, idx) => (
+                                <div key={idx} className="mb-8">
+                                    {isSidebarOpen ? (
+                                        <div className="px-6 flex items-center gap-2 font-black text-black uppercase tracking-widest mb-4 border-b-2 border-black pb-2 mx-6">
+                                            <group.icon /> {group.category}
+                                        </div>
+                                    ) : (
+                                        <div className="flex justify-center mb-4 text-black"><group.icon /></div>
+                                    )}
+                                    <ul className="space-y-2 px-4">
+                                        {group.items.map((item) => {
+                                            const isActive = activeMenu === item.id;
+                                            return (
+                                                <li key={item.id}>
+                                                    <button
+                                                        onClick={() => setActiveMenu(item.id)}
+                                                        className={`w-full flex items-center text-left px-4 py-3 font-bold uppercase text-xs tracking-wider transition-all border-4 ${
+                                                            isActive 
+                                                                ? 'bg-black text-white border-black neo-shadow-sm translate-x-1' 
+                                                                : 'bg-white text-black border-transparent hover:border-black hover:bg-[#f4f4f0]'
+                                                        } ${!isSidebarOpen && 'justify-center px-1 text-[10px] text-center'}`}
+                                                    >
+                                                        {isSidebarOpen ? item.label : item.label.substring(0, 3)}
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        {/* Perfil do Usuário */}
+                        <div className="p-6 border-t-4 border-black flex items-center bg-white flex-shrink-0">
+                            <div className="w-12 h-12 bg-[#00E676] text-black border-4 border-black flex items-center justify-center flex-shrink-0 neo-shadow-sm font-display text-xl font-black">
+                                JS
+                            </div>
+                            {isSidebarOpen && (
+                                <div className="ml-4 overflow-hidden">
+                                    <p className="text-sm font-black text-black uppercase truncate">JOÃO SUPERVISOR</p>
+                                    <p className="text-xs text-gray-500 font-bold uppercase truncate">ID: 99482</p>
+                                </div>
+                            )}
+                        </div>
+                    </aside>
+
+                    {/* Área Principal de Conteúdo */}
+                    <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+                        {/* Cabeçalho Topo */}
+                        <header className="h-20 bg-white border-b-4 border-black flex items-center justify-between px-10 z-10 flex-shrink-0 relative shadow-[0_6px_0_0_rgba(0,0,0,1)]">
+                            <h1 className="text-2xl font-black text-black uppercase tracking-wide font-display">
+                                <span className="text-gray-400 mr-2">/ </span>
+                                {menuItems.flatMap(g => g.items).find(i => i.id === activeMenu)?.label}
+                            </h1>
+                            <div className="flex items-center gap-6 text-black font-bold text-sm uppercase">
+                                <button className="neo-button bg-white border-4 border-black px-4 py-2 hover:bg-[#FFE600] transition-colors flex gap-2 items-center neo-shadow-sm">
+                                    Avisos do Sistema
+                                    <span className="bg-red-500 text-white px-2 py-0.5 border-2 border-black font-black">3</span>
+                                </button>
+                                <button className="neo-button bg-black text-white border-4 border-black px-6 py-2 hover:bg-gray-800 transition-colors neo-shadow-sm">
+                                    Encerrar Sessão
+                                </button>
+                            </div>
+                        </header>
+
+                        {/* Corpo do Conteúdo */}
+                        <div className="flex-1 overflow-y-auto p-10">
+                            <div className="max-w-[1400px] mx-auto">
+                                {renderContent()}
+                            </div>
+                        </div>
+                    </main>
+
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
