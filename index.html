@@ -50,6 +50,12 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
+        // --- FUNÇÕES DE MÁSCARA E FORMATAÇÃO (Padrões de Mercado BR) ---
+        const formatPlaca = (v) => v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7);
+        const formatCNH = (v) => v.replace(/\D/g, '').slice(0, 11);
+        const formatMatricula = (v) => v.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+        const formatNome = (v) => v.toUpperCase();
+
         // Ícones SVG reutilizáveis
         const Icons = {
             Menu: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
@@ -61,7 +67,9 @@
             CheckCircle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
             Plus: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
             Edit: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
-            Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
+            Bell: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
+            LogOut: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
         };
 
         function App() {
@@ -113,14 +121,31 @@
 
                 const carregarProgramacaoAnterior = () => {
                     setDespachos([
-                        { id: 1, rastreador: 'RST-1001', statusRastreador: 'ATIVO', caminhao: 'ABC-1234', motorista: 'JOÃO SILVA', operadores: ['99101', '99102'], mapas: ['CV100200MT001'] },
-                        { id: 2, rastreador: 'RST-1002', statusRastreador: 'MANUTENÇÃO', caminhao: 'XYZ-9876', motorista: 'CARLOS MENDES', operadores: ['99201'], mapas: ['CV100200MT003'] },
+                        { id: 1, rastreador: 'RST-1001', statusRastreador: 'ATIVO', caminhao: 'ABC1234', motorista: 'JOÃO SILVA', operadores: ['99101', '99102'], mapas: ['CV100200MT001'] },
+                        { id: 2, rastreador: 'RST-1002', statusRastreador: 'MANUTENÇÃO', caminhao: 'XYZ9876', motorista: 'CARLOS MENDES', operadores: ['99201'], mapas: ['CV100200MT003'] },
                     ]);
                     showToast("Programação anterior carregada com sucesso!", "success");
                 };
 
-                const adicionarVeiculo = () => setDespachos([...despachos, { id: Date.now(), rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }]);
-                const removerVeiculo = (id) => setDespachos(despachos.filter(d => d.id !== id));
+                const limparFormulario = () => {
+                    setDespachos([{ id: Date.now(), rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }]);
+                    showToast("Formulário limpo.", "success");
+                };
+
+                const adicionarVeiculo = () => {
+                    setDespachos([...despachos, { id: Date.now(), rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }]);
+                    showToast("Novo veículo adicionado à rota.", "success");
+                };
+
+                const removerVeiculo = (id) => {
+                    if (despachos.length === 1) {
+                        showToast("A rota precisa ter pelo menos um veículo.", "error");
+                        return;
+                    }
+                    setDespachos(despachos.filter(d => d.id !== id));
+                    showToast("Veículo removido da rota.", "error");
+                };
+
                 const atualizarVeiculoCampo = (id, campo, valor) => setDespachos(despachos.map(d => d.id === id ? { ...d, [campo]: valor } : d));
 
                 const manipularArray = (id, chave, acao, index, valor) => {
@@ -132,6 +157,15 @@
                         else if (acao === 'update') novoArray[index] = valor;
                         return { ...d, [chave]: novoArray };
                     }));
+                };
+
+                const validarESalvar = () => {
+                    const isValid = despachos.every(d => d.caminhao && d.rastreador);
+                    if(!isValid) {
+                        showToast("Preencha as placas e rastreadores antes de salvar.", "error");
+                        return;
+                    }
+                    showToast("Despachos salvos e confirmados na base de dados!", "success");
                 };
 
                 return (
@@ -146,7 +180,7 @@
                                 <button onClick={carregarProgramacaoAnterior} className="neo-button neo-shadow-sm bg-white text-black px-6 py-3 border-4 border-black font-black uppercase text-sm">
                                     ↻ Carregar Anterior
                                 </button>
-                                <button onClick={() => setDespachos([{ id: Date.now(), rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] }])} className="neo-button neo-shadow-sm bg-red-500 text-white px-6 py-3 border-4 border-black font-black uppercase text-sm">
+                                <button onClick={limparFormulario} className="neo-button neo-shadow-sm bg-red-500 text-white px-6 py-3 border-4 border-black font-black uppercase text-sm">
                                     Limpar
                                 </button>
                             </div>
@@ -157,7 +191,6 @@
                             {despachos.map((despacho, index) => (
                                 <div key={despacho.id} className="bg-white border-4 border-black neo-shadow p-6 relative transition-all">
                                     
-                                    {/* Número da Rota "Badge" */}
                                     <div className="absolute -top-4 -left-4 bg-[#00E676] border-4 border-black w-12 h-12 flex items-center justify-center font-black text-xl neo-shadow-sm">
                                         {index + 1}
                                     </div>
@@ -172,9 +205,9 @@
                                     {/* Grid Principal de Inputs */}
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                                         <div className="flex flex-col group">
-                                            <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Rastreador & Status</label>
+                                            <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Rastreador & Status *</label>
                                             <div className="flex border-4 border-black neo-shadow-sm">
-                                                <input type="text" placeholder="EX: RST-1001" value={despacho.rastreador} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'rastreador', e.target.value)} className="w-2/3 p-3 outline-none uppercase font-black text-lg focus:bg-[#FFE600] transition-colors border-r-4 border-black" />
+                                                <input type="text" required placeholder="EX: RST-1001" value={despacho.rastreador} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'rastreador', formatMatricula(e.target.value))} className="w-2/3 p-3 outline-none uppercase font-black text-lg focus:bg-[#FFE600] transition-colors border-r-4 border-black" />
                                                 <select value={despacho.statusRastreador} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'statusRastreador', e.target.value)} className={`w-1/3 p-3 outline-none uppercase font-bold text-sm cursor-pointer ${despacho.statusRastreador === 'ATIVO' ? 'bg-[#00E676]' : despacho.statusRastreador === 'MANUTENÇÃO' ? 'bg-[#FF3D00] text-white' : 'bg-gray-200'}`}>
                                                     <option value="ATIVO">ATIVO</option>
                                                     <option value="DESATIVADO">OFF</option>
@@ -184,24 +217,22 @@
                                         </div>
                                         
                                         <div className="flex flex-col group">
-                                            <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Placa do Caminhão</label>
-                                            <input type="text" placeholder="EX: ABC-1234" value={despacho.caminhao} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'caminhao', e.target.value)} className="border-4 border-black p-3 outline-none uppercase font-black text-lg neo-shadow-sm focus:bg-[#FFE600] transition-colors" />
+                                            <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Placa do Caminhão *</label>
+                                            <input type="text" required placeholder="EX: ABC1234" value={despacho.caminhao} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'caminhao', formatPlaca(e.target.value))} className="border-4 border-black p-3 outline-none uppercase font-black text-lg neo-shadow-sm focus:bg-[#FFE600] transition-colors" />
                                         </div>
 
                                         <div className="flex flex-col group">
                                             <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Motorista Responsável</label>
-                                            <input type="text" placeholder="NOME DO MOTORISTA" value={despacho.motorista} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'motorista', e.target.value)} className="border-4 border-black p-3 outline-none uppercase font-black text-lg neo-shadow-sm focus:bg-[#FFE600] transition-colors" />
+                                            <input type="text" placeholder="NOME DO MOTORISTA" value={despacho.motorista} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'motorista', formatNome(e.target.value))} className="border-4 border-black p-3 outline-none uppercase font-black text-lg neo-shadow-sm focus:bg-[#FFE600] transition-colors" />
                                         </div>
                                     </div>
 
-                                    {/* Seções de Arrays (Mapas e Operadores) */}
+                                    {/* Seções de Arrays */}
                                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                                        
-                                        {/* Box Mapas */}
                                         <div className="bg-[#f4f4f0] border-4 border-black p-5 neo-shadow-sm">
                                             <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
                                                 <label className="text-sm font-black uppercase flex items-center gap-2"><Icons.ClipboardList /> Mapas Vinculados</label>
-                                                <button onClick={() => manipularArray(despacho.id, 'mapas', 'add')} className="bg-[#00E676] text-black border-2 border-black px-3 py-1 text-xs font-black uppercase hover:bg-black hover:text-white transition-colors">
+                                                <button type="button" onClick={() => manipularArray(despacho.id, 'mapas', 'add')} className="bg-[#00E676] text-black border-2 border-black px-3 py-1 text-xs font-black uppercase hover:bg-black hover:text-white transition-colors">
                                                     + Mapa
                                                 </button>
                                             </div>
@@ -209,43 +240,40 @@
                                                 {despacho.mapas.map((mapa, idx) => (
                                                     <div key={idx} className="flex border-2 border-black bg-white focus-within:bg-[#FFE600] transition-colors">
                                                         <span className="bg-black text-white px-3 py-2 font-black border-r-2 border-black">{idx + 1}</span>
-                                                        <input type="text" placeholder="CÓDIGO (EX: CV100)" value={mapa} onChange={(e) => manipularArray(despacho.id, 'mapas', 'update', idx, e.target.value)} className="w-full p-2 outline-none uppercase font-bold text-sm bg-transparent" />
-                                                        <button onClick={() => manipularArray(despacho.id, 'mapas', 'remove', idx)} disabled={despacho.mapas.length === 1} className="bg-red-500 text-white font-black px-4 border-l-2 border-black hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">X</button>
+                                                        <input type="text" placeholder="CÓDIGO (EX: CV100)" value={mapa} onChange={(e) => manipularArray(despacho.id, 'mapas', 'update', idx, formatMatricula(e.target.value))} className="w-full p-2 outline-none uppercase font-bold text-sm bg-transparent" />
+                                                        <button type="button" onClick={() => manipularArray(despacho.id, 'mapas', 'remove', idx)} disabled={despacho.mapas.length === 1} className="bg-red-500 text-white font-black px-4 border-l-2 border-black hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">X</button>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
 
-                                        {/* Box Operadores */}
                                         <div className="bg-[#f4f4f0] border-4 border-black p-5 neo-shadow-sm">
                                             <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
                                                 <label className="text-sm font-black uppercase flex items-center gap-2"><Icons.Users /> Operadores (Matrícula)</label>
-                                                <button onClick={() => manipularArray(despacho.id, 'operadores', 'add')} className="bg-[#00E676] text-black border-2 border-black px-3 py-1 text-xs font-black uppercase hover:bg-black hover:text-white transition-colors">
+                                                <button type="button" onClick={() => manipularArray(despacho.id, 'operadores', 'add')} className="bg-[#00E676] text-black border-2 border-black px-3 py-1 text-xs font-black uppercase hover:bg-black hover:text-white transition-colors">
                                                     + Operador
                                                 </button>
                                             </div>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 {despacho.operadores.map((op, idx) => (
                                                     <div key={idx} className="flex border-2 border-black bg-white focus-within:bg-[#FFE600] transition-colors">
-                                                        <input type="text" placeholder="MATRÍCULA" value={op} onChange={(e) => manipularArray(despacho.id, 'operadores', 'update', idx, e.target.value)} className="w-full p-2 outline-none uppercase font-bold text-sm bg-transparent" />
-                                                        <button onClick={() => manipularArray(despacho.id, 'operadores', 'remove', idx)} disabled={despacho.operadores.length === 1} className="bg-red-500 text-white font-black px-3 border-l-2 border-black hover:bg-red-700 disabled:opacity-50">X</button>
+                                                        <input type="text" placeholder="MATRÍCULA" value={op} onChange={(e) => manipularArray(despacho.id, 'operadores', 'update', idx, formatMatricula(e.target.value))} className="w-full p-2 outline-none uppercase font-bold text-sm bg-transparent" />
+                                                        <button type="button" onClick={() => manipularArray(despacho.id, 'operadores', 'remove', idx)} disabled={despacho.operadores.length === 1} className="bg-red-500 text-white font-black px-3 border-l-2 border-black hover:bg-red-700 disabled:opacity-50">X</button>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
-
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Barra de Ações Fixa no Fundo */}
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-6 pt-6 border-t-4 border-black mt-8">
                             <button onClick={adicionarVeiculo} className="neo-button bg-white text-black border-4 border-black px-8 py-4 font-black uppercase text-lg w-full sm:w-auto neo-shadow flex items-center justify-center gap-2">
                                 <span>+</span> Novo Veículo à Rota
                             </button>
                             
-                            <button onClick={() => showToast("Despachos salvos e confirmados na base de dados!", "success")} className="neo-button bg-[#00E676] text-black border-4 border-black px-10 py-4 font-black uppercase text-lg w-full sm:w-auto neo-shadow flex items-center justify-center gap-2">
+                            <button onClick={validarESalvar} className="neo-button bg-[#00E676] text-black border-4 border-black px-10 py-4 font-black uppercase text-lg w-full sm:w-auto neo-shadow flex items-center justify-center gap-2">
                                 <Icons.CheckCircle /> Confirmar e Salvar
                             </button>
                         </div>
@@ -254,103 +282,151 @@
             };
 
             // --- Componente: Baterias ---
-            const BateriasScreen = () => (
-                <div className="space-y-8 animate-fadeIn">
-                    <h2 className="text-4xl font-black text-black uppercase font-display border-b-4 border-black pb-4 mb-6">Status da Frota e Baterias</h2>
-                    
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                        <div className="border-4 border-black bg-white neo-shadow flex flex-col">
-                            <div className="bg-[#FF3D00] text-white text-center py-4 border-b-4 border-black">
-                                <h3 className="font-black uppercase text-xl font-display">Rastreador OFF</h3>
-                                <p className="font-black text-6xl tracking-tighter mt-2">221</p>
+            const BateriasScreen = ({ showToast }) => {
+                const gerarRelatorio = (tipo) => {
+                    showToast(`Iniciando download do relatório em ${tipo}...`, "success");
+                };
+
+                return (
+                    <div className="space-y-8 animate-fadeIn">
+                        <h2 className="text-4xl font-black text-black uppercase font-display border-b-4 border-black pb-4 mb-6">Status da Frota e Baterias</h2>
+                        
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                            <div className="border-4 border-black bg-white neo-shadow flex flex-col">
+                                <div className="bg-[#FF3D00] text-white text-center py-4 border-b-4 border-black">
+                                    <h3 className="font-black uppercase text-xl font-display">Rastreador OFF</h3>
+                                    <p className="font-black text-6xl tracking-tighter mt-2">221</p>
+                                </div>
+                                <div className="flex-1 p-6 bg-[#f4f4f0] grid grid-cols-2 gap-4">
+                                    <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Descarregado</p><p className="font-black text-2xl">155</p></div>
+                                    <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Recarga Urgente</p><p className="font-black text-2xl">23</p></div>
+                                    <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm col-span-2"><p className="text-[10px] font-black uppercase text-gray-500">Iminência de Recarga</p><p className="font-black text-2xl">43</p></div>
+                                </div>
                             </div>
-                            <div className="flex-1 p-6 bg-[#f4f4f0] grid grid-cols-2 gap-4">
-                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Descarregado</p><p className="font-black text-2xl">155</p></div>
-                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Recarga Urgente</p><p className="font-black text-2xl">23</p></div>
-                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm col-span-2"><p className="text-[10px] font-black uppercase text-gray-500">Iminência de Recarga</p><p className="font-black text-2xl">43</p></div>
+
+                            <div className="border-4 border-black bg-white neo-shadow flex flex-col">
+                                <div className="bg-[#00E676] text-black text-center py-4 border-b-4 border-black">
+                                    <h3 className="font-black uppercase text-xl font-display">Rastreador ON</h3>
+                                    <p className="font-black text-6xl tracking-tighter mt-2">228</p>
+                                </div>
+                                <div className="flex-1 p-6 bg-[#f4f4f0] grid grid-cols-2 gap-4">
+                                    <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Carregado</p><p className="font-black text-2xl">82</p></div>
+                                    <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Carga Trabalho</p><p className="font-black text-2xl">74</p></div>
+                                    <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm col-span-2"><p className="text-[10px] font-black uppercase text-gray-500">Iminência de Recarga</p><p className="font-black text-2xl">72</p></div>
+                                </div>
+                            </div>
+
+                            <div className="border-4 border-black bg-black text-white neo-shadow flex flex-col items-center justify-center p-8 relative overflow-hidden">
+                                <div className="absolute -right-10 -bottom-10 opacity-10 text-[200px]"><Icons.Truck /></div>
+                                <h3 className="font-black uppercase text-2xl text-[#FFE600] font-display z-10">Total da Frota</h3>
+                                <p className="font-black text-8xl mt-4 z-10">449</p>
+                                <button onClick={() => gerarRelatorio('PDF GERAL')} className="mt-8 neo-button bg-white text-black font-black uppercase px-6 py-3 border-2 border-black text-sm z-10 w-full hover:bg-[#FFE600]">
+                                    Gerar Relatório
+                                </button>
                             </div>
                         </div>
 
-                        <div className="border-4 border-black bg-white neo-shadow flex flex-col">
-                            <div className="bg-[#00E676] text-black text-center py-4 border-b-4 border-black">
-                                <h3 className="font-black uppercase text-xl font-display">Rastreador ON</h3>
-                                <p className="font-black text-6xl tracking-tighter mt-2">228</p>
+                        <div className="bg-white border-4 border-black neo-shadow overflow-hidden mt-8">
+                            <div className="flex gap-4 p-4 border-b-4 border-black bg-[#FFE600] items-center">
+                                <span className="font-black uppercase flex-1">Listagem Detalhada</span>
+                                <button onClick={() => gerarRelatorio('PDF')} className="neo-button bg-black text-white font-bold text-xs px-4 py-2 uppercase border-2 border-black hover:bg-gray-800">PDF</button>
+                                <button onClick={() => gerarRelatorio('EXCEL')} className="neo-button bg-white text-black font-bold text-xs px-4 py-2 uppercase border-2 border-black hover:bg-gray-200">EXCEL</button>
                             </div>
-                            <div className="flex-1 p-6 bg-[#f4f4f0] grid grid-cols-2 gap-4">
-                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Carregado</p><p className="font-black text-2xl">82</p></div>
-                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Carga Trabalho</p><p className="font-black text-2xl">74</p></div>
-                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm col-span-2"><p className="text-[10px] font-black uppercase text-gray-500">Iminência de Recarga</p><p className="font-black text-2xl">72</p></div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse min-w-max">
+                                    <thead>
+                                        <tr className="bg-black text-white text-xs uppercase tracking-wider">
+                                            <th className="p-4 font-black border-r-2 border-gray-700">Equipamento</th>
+                                            <th className="p-4 font-black border-r-2 border-gray-700">Placa</th>
+                                            <th className="p-4 font-black border-r-2 border-gray-700">Status de Bateria</th>
+                                            <th className="p-4 font-black border-r-2 border-gray-700">Comunicação</th>
+                                            <th className="p-4 font-black border-r-2 border-gray-700">Bateria %</th>
+                                            <th className="p-4 font-black">Última Comunicação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm font-bold text-gray-800">
+                                        <tr className="border-b-2 border-gray-200 hover:bg-[#FFE600] transition-colors cursor-pointer">
+                                            <td className="p-4 border-r-2 border-gray-200">CARRINHO 01</td>
+                                            <td className="p-4 border-r-2 border-gray-200">N/A</td>
+                                            <td className="p-4 border-r-2 border-gray-200"><span className="bg-[#FF3D00] text-white px-2 py-1 border-2 border-black text-xs font-black">DESCARREGADO</span></td>
+                                            <td className="p-4 border-r-2 border-gray-200">OFF</td>
+                                            <td className="p-4 border-r-2 border-gray-200">0%</td>
+                                            <td className="p-4">01/04/2026 14:30</td>
+                                        </tr>
+                                        <tr className="border-b-2 border-gray-200 hover:bg-[#FFE600] transition-colors cursor-pointer bg-gray-50">
+                                            <td className="p-4 border-r-2 border-gray-200">CARRINHO 02</td>
+                                            <td className="p-4 border-r-2 border-gray-200">N/A</td>
+                                            <td className="p-4 border-r-2 border-gray-200"><span className="bg-[#00E676] text-black px-2 py-1 border-2 border-black text-xs font-black">CARREGADO</span></td>
+                                            <td className="p-4 border-r-2 border-gray-200">ON</td>
+                                            <td className="p-4 border-r-2 border-gray-200">98%</td>
+                                            <td className="p-4">04/04/2026 07:15</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
-                        </div>
-
-                        <div className="border-4 border-black bg-black text-white neo-shadow flex flex-col items-center justify-center p-8 relative overflow-hidden">
-                            <div className="absolute -right-10 -bottom-10 opacity-10 text-[200px]"><Icons.Truck /></div>
-                            <h3 className="font-black uppercase text-2xl text-[#FFE600] font-display z-10">Total da Frota</h3>
-                            <p className="font-black text-8xl mt-4 z-10">449</p>
-                            <button className="mt-8 neo-button bg-white text-black font-black uppercase px-6 py-3 border-2 border-black text-sm z-10 w-full">Gerar Relatório</button>
                         </div>
                     </div>
-
-                    <div className="bg-white border-4 border-black neo-shadow overflow-hidden mt-8">
-                        <div className="flex gap-4 p-4 border-b-4 border-black bg-[#FFE600] items-center">
-                            <span className="font-black uppercase flex-1">Listagem Detalhada</span>
-                            <button className="neo-button bg-black text-white font-bold text-xs px-4 py-2 uppercase border-2 border-black">PDF</button>
-                            <button className="neo-button bg-white text-black font-bold text-xs px-4 py-2 uppercase border-2 border-black">EXCEL</button>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse min-w-max">
-                                <thead>
-                                    <tr className="bg-black text-white text-xs uppercase tracking-wider">
-                                        <th className="p-4 font-black border-r-2 border-gray-700">Equipamento</th>
-                                        <th className="p-4 font-black border-r-2 border-gray-700">Placa</th>
-                                        <th className="p-4 font-black border-r-2 border-gray-700">Status de Bateria</th>
-                                        <th className="p-4 font-black border-r-2 border-gray-700">Comunicação</th>
-                                        <th className="p-4 font-black border-r-2 border-gray-700">Bateria %</th>
-                                        <th className="p-4 font-black">Última Comunicação</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="text-sm font-bold text-gray-800">
-                                    <tr className="border-b-2 border-gray-200 hover:bg-[#FFE600] transition-colors cursor-pointer">
-                                        <td className="p-4 border-r-2 border-gray-200">CARRINHO 01</td>
-                                        <td className="p-4 border-r-2 border-gray-200">N/A</td>
-                                        <td className="p-4 border-r-2 border-gray-200"><span className="bg-[#FF3D00] text-white px-2 py-1 border-2 border-black text-xs font-black">DESCARREGADO</span></td>
-                                        <td className="p-4 border-r-2 border-gray-200">OFF</td>
-                                        <td className="p-4 border-r-2 border-gray-200">0%</td>
-                                        <td className="p-4">01/04/2026 14:30</td>
-                                    </tr>
-                                    <tr className="border-b-2 border-gray-200 hover:bg-[#FFE600] transition-colors cursor-pointer bg-gray-50">
-                                        <td className="p-4 border-r-2 border-gray-200">CARRINHO 02</td>
-                                        <td className="p-4 border-r-2 border-gray-200">N/A</td>
-                                        <td className="p-4 border-r-2 border-gray-200"><span className="bg-[#00E676] text-black px-2 py-1 border-2 border-black text-xs font-black">CARREGADO</span></td>
-                                        <td className="p-4 border-r-2 border-gray-200">ON</td>
-                                        <td className="p-4 border-r-2 border-gray-200">98%</td>
-                                        <td className="p-4">04/04/2026 07:15</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            );
+                );
+            };
 
             // --- Componente: Cadastro de Motoristas ---
             const CadastroMotoristasScreen = ({ showToast }) => {
                 const [motoristas, setMotoristas] = useState([
-                    { id: 1, matricula: 'MOT-1001', nome: 'JOÃO DA SILVA', cnh: '12345678900', categoria: 'D', status: 'ATIVO' },
-                    { id: 2, matricula: 'MOT-1002', nome: 'CARLOS PEREIRA', cnh: '09876543211', categoria: 'E', status: 'ATIVO' },
-                    { id: 3, matricula: 'MOT-1003', nome: 'ROBERTO ALVES', cnh: '11223344556', categoria: 'D', status: 'INATIVO' },
+                    { id: 1, matricula: 'MOT-1001', nome: 'JOÃO DA SILVA', cnh: '12345678900', categoria: 'D', turno: '1º TURNO', setor: 'OPERAÇÃO', status: 'ATIVO' },
+                    { id: 2, matricula: 'MOT-1002', nome: 'CARLOS PEREIRA', cnh: '09876543211', categoria: 'E', turno: '2º TURNO', setor: 'OPERAÇÃO', status: 'ATIVO' },
+                    { id: 3, matricula: 'MOT-1003', nome: 'ROBERTO ALVES', cnh: '11223344556', categoria: 'B', turno: '3º TURNO', setor: 'ADMINISTRATIVO', status: 'INATIVO' },
                 ]);
+                
+                const initialFormState = { id: null, matricula: '', nome: '', cnh: '', categoria: 'B', turno: '1º TURNO', setor: 'OPERAÇÃO', status: 'ATIVO' };
+                const [formData, setFormData] = useState(initialFormState);
                 const [showForm, setShowForm] = useState(false);
+
+                const handleInputChange = (e) => {
+                    const { name, value } = e.target;
+                    let formatValue = value;
+                    if(name === 'cnh') formatValue = formatCNH(value);
+                    if(name === 'matricula') formatValue = formatMatricula(value);
+                    if(name === 'nome') formatValue = formatNome(value);
+                    
+                    setFormData({ ...formData, [name]: formatValue });
+                };
 
                 const salvarMotorista = (e) => {
                     e.preventDefault();
-                    showToast("Motorista cadastrado com sucesso!", "success");
+                    if(formData.cnh.length < 11) {
+                        showToast("A CNH deve conter 11 dígitos.", "error");
+                        return;
+                    }
+
+                    if (formData.id) {
+                        // Edit
+                        setMotoristas(motoristas.map(m => m.id === formData.id ? formData : m));
+                        showToast("Motorista atualizado com sucesso!", "success");
+                    } else {
+                        // Create
+                        setMotoristas([...motoristas, { ...formData, id: Date.now() }]);
+                        showToast("Novo motorista cadastrado com sucesso!", "success");
+                    }
+                    setFormData(initialFormState);
                     setShowForm(false);
                 };
 
+                const editarMotorista = (motorista) => {
+                    setFormData(motorista);
+                    setShowForm(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+
                 const removerMotorista = (id) => {
-                    setMotoristas(motoristas.filter(m => m.id !== id));
-                    showToast("Registro removido.", "error");
+                    if(window.confirm("Deseja realmente remover este motorista?")) {
+                        setMotoristas(motoristas.filter(m => m.id !== id));
+                        showToast("Registro removido.", "error");
+                    }
+                };
+
+                const cancelarEdicao = () => {
+                    setShowForm(!showForm);
+                    if(showForm) setFormData(initialFormState);
                 };
 
                 return (
@@ -360,7 +436,7 @@
                                 <h2 className="text-4xl font-black text-black uppercase font-display tracking-tight">Motoristas</h2>
                                 <p className="font-bold text-gray-600 uppercase mt-2">Gestão de condutores de frota.</p>
                             </div>
-                            <button onClick={() => setShowForm(!showForm)} className="neo-button neo-shadow-sm bg-black text-white px-6 py-3 border-4 border-black font-black uppercase text-sm flex items-center gap-2">
+                            <button onClick={cancelarEdicao} className={`neo-button neo-shadow-sm px-6 py-3 border-4 border-black font-black uppercase text-sm flex items-center gap-2 ${showForm ? 'bg-red-500 text-white' : 'bg-black text-white'}`}>
                                 {showForm ? <Icons.X /> : <Icons.Plus />} 
                                 {showForm ? 'Cancelar' : 'Novo Motorista'}
                             </button>
@@ -368,36 +444,62 @@
 
                         {showForm && (
                             <div className="bg-[#FFE600] border-4 border-black neo-shadow p-6 mb-8 animate-fadeIn">
-                                <h3 className="font-black text-xl uppercase mb-4 border-b-2 border-black pb-2">Cadastrar Novo Motorista</h3>
+                                <h3 className="font-black text-xl uppercase mb-4 border-b-2 border-black pb-2">
+                                    {formData.id ? 'Editar Motorista' : 'Cadastrar Novo Motorista'}
+                                </h3>
                                 <form onSubmit={salvarMotorista} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                                     <div className="flex flex-col group">
-                                        <label className="text-xs font-black uppercase mb-1">Matrícula</label>
-                                        <input type="text" required placeholder="EX: MOT-0000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                        <label className="text-xs font-black uppercase mb-1">Matrícula *</label>
+                                        <input type="text" name="matricula" value={formData.matricula} onChange={handleInputChange} required placeholder="EX: MOT-0000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
                                     </div>
                                     <div className="flex flex-col group xl:col-span-2">
-                                        <label className="text-xs font-black uppercase mb-1">Nome Completo</label>
-                                        <input type="text" required placeholder="NOME DO MOTORISTA" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                        <label className="text-xs font-black uppercase mb-1">Nome Completo *</label>
+                                        <input type="text" name="nome" value={formData.nome} onChange={handleInputChange} required placeholder="NOME DO MOTORISTA" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
                                     </div>
                                     <div className="flex flex-col group">
                                         <label className="text-xs font-black uppercase mb-1">Status</label>
-                                        <select className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
-                                            <option>ATIVO</option>
-                                            <option>INATIVO</option>
+                                        <select name="status" value={formData.status} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                            <option value="ATIVO">ATIVO</option>
+                                            <option value="INATIVO">INATIVO</option>
                                         </select>
                                     </div>
-                                    <div className="flex flex-col group xl:col-span-2">
-                                        <label className="text-xs font-black uppercase mb-1">Nº CNH</label>
-                                        <input type="text" required placeholder="00000000000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                    <div className="flex flex-col group">
+                                        <label className="text-xs font-black uppercase mb-1">Nº CNH *</label>
+                                        <input type="text" name="cnh" value={formData.cnh} onChange={handleInputChange} required placeholder="00000000000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
                                     </div>
                                     <div className="flex flex-col group">
                                         <label className="text-xs font-black uppercase mb-1">Categoria CNH</label>
-                                        <select className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
-                                            <option>B</option><option>C</option><option>D</option><option>E</option>
+                                        <select name="categoria" value={formData.categoria} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                            <option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                                         </select>
                                     </div>
-                                    <div className="flex items-end">
-                                        <button type="submit" className="neo-button bg-white text-black border-4 border-black px-6 py-3 font-black uppercase w-full hover:bg-black hover:text-white transition-colors">
-                                            Salvar Registro
+                                    <div className="flex flex-col group">
+                                        <label className="text-xs font-black uppercase mb-1">Turno Base</label>
+                                        <select name="turno" value={formData.turno} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                            <option value="1º TURNO">1º TURNO</option>
+                                            <option value="2º TURNO">2º TURNO</option>
+                                            <option value="3º TURNO">3º TURNO</option>
+                                        </select>
+                                    </div>
+                                    
+                                    {/* Botões de Rádio Customizados (Setor) */}
+                                    <div className="flex flex-col group xl:col-span-2">
+                                        <label className="text-xs font-black uppercase mb-1">Setor</label>
+                                        <div className="flex flex-col sm:flex-row gap-4 h-full">
+                                            <label className={`flex-1 flex items-center justify-center gap-2 p-2 border-4 border-black cursor-pointer transition-all font-black uppercase ${formData.setor === 'OPERAÇÃO' ? 'bg-[#FFE600] neo-shadow-sm -translate-y-1 -translate-x-1' : 'bg-white hover:bg-gray-50'}`}>
+                                                <input type="radio" name="setor" value="OPERAÇÃO" checked={formData.setor === 'OPERAÇÃO'} onChange={handleInputChange} className="hidden" />
+                                                <span className="text-lg">🚛</span> Operação
+                                            </label>
+                                            <label className={`flex-1 flex items-center justify-center gap-2 p-2 border-4 border-black cursor-pointer transition-all font-black uppercase ${formData.setor === 'ADMINISTRATIVO' ? 'bg-[#FFE600] neo-shadow-sm -translate-y-1 -translate-x-1' : 'bg-white hover:bg-gray-50'}`}>
+                                                <input type="radio" name="setor" value="ADMINISTRATIVO" checked={formData.setor === 'ADMINISTRATIVO'} onChange={handleInputChange} className="hidden" />
+                                                <span className="text-lg">🚗</span> Admin.
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-end xl:col-span-2">
+                                        <button type="submit" className="neo-button bg-white text-black border-4 border-black px-6 py-3 font-black uppercase w-full hover:bg-black hover:text-white transition-colors h-[52px]">
+                                            {formData.id ? 'Atualizar Registro' : 'Salvar Registro'}
                                         </button>
                                     </div>
                                 </form>
@@ -412,6 +514,7 @@
                                         <th className="p-4 font-black border-r-2 border-gray-700">Nome do Condutor</th>
                                         <th className="p-4 font-black border-r-2 border-gray-700">CNH</th>
                                         <th className="p-4 font-black border-r-2 border-gray-700">Cat.</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Turno</th>
                                         <th className="p-4 font-black border-r-2 border-gray-700">Status</th>
                                         <th className="p-4 font-black text-center w-24">Ações</th>
                                     </tr>
@@ -423,13 +526,14 @@
                                             <td className="p-4 border-r-2 border-gray-200">{m.nome}</td>
                                             <td className="p-4 border-r-2 border-gray-200">{m.cnh}</td>
                                             <td className="p-4 border-r-2 border-gray-200"><span className="bg-black text-white px-2 py-1 font-black">{m.categoria}</span></td>
+                                            <td className="p-4 border-r-2 border-gray-200">{m.turno}</td>
                                             <td className="p-4 border-r-2 border-gray-200">
                                                 <span className={`px-2 py-1 border-2 border-black text-xs font-black ${m.status === 'ATIVO' ? 'bg-[#00E676] text-black' : 'bg-gray-200 text-gray-500'}`}>
                                                     {m.status}
                                                 </span>
                                             </td>
                                             <td className="p-4 text-center flex justify-center gap-2">
-                                                <button className="bg-[#FFE600] border-2 border-black p-2 hover:bg-black hover:text-[#FFE600] transition-colors"><Icons.Edit /></button>
+                                                <button onClick={() => editarMotorista(m)} className="bg-[#FFE600] border-2 border-black p-2 hover:bg-black hover:text-[#FFE600] transition-colors"><Icons.Edit /></button>
                                                 <button onClick={() => removerMotorista(m.id)} className="bg-[#FF3D00] text-white border-2 border-black p-2 hover:bg-black transition-colors"><Icons.Trash /></button>
                                             </td>
                                         </tr>
@@ -444,21 +548,52 @@
             // --- Componente: Cadastro de Operadores/Coletores ---
             const CadastroOperadoresScreen = ({ showToast }) => {
                 const [operadores, setOperadores] = useState([
-                    { id: 1, matricula: '99101', nome: 'MATEUS COSTA', turno: 'DIURNO', status: 'ATIVO' },
-                    { id: 2, matricula: '99102', nome: 'LUCAS MARTINS', turno: 'DIURNO', status: 'ATIVO' },
-                    { id: 3, matricula: '99201', nome: 'FERNANDO SOUZA', turno: 'NOTURNO', status: 'FÉRIAS' },
+                    { id: 1, matricula: '99101', nome: 'MATEUS COSTA', turno: '1º TURNO', status: 'ATIVO' },
+                    { id: 2, matricula: '99102', nome: 'LUCAS MARTINS', turno: '1º TURNO', status: 'ATIVO' },
+                    { id: 3, matricula: '99201', nome: 'FERNANDO SOUZA', turno: '3º TURNO', status: 'FÉRIAS' },
                 ]);
+                
+                const initialFormState = { id: null, matricula: '', nome: '', turno: '1º TURNO', status: 'ATIVO' };
+                const [formData, setFormData] = useState(initialFormState);
                 const [showForm, setShowForm] = useState(false);
+
+                const handleInputChange = (e) => {
+                    const { name, value } = e.target;
+                    let formatValue = value;
+                    if(name === 'matricula') formatValue = formatMatricula(value);
+                    if(name === 'nome') formatValue = formatNome(value);
+                    setFormData({ ...formData, [name]: formatValue });
+                };
 
                 const salvarOperador = (e) => {
                     e.preventDefault();
-                    showToast("Operador/Coletor cadastrado com sucesso!", "success");
+                    if (formData.id) {
+                        setOperadores(operadores.map(o => o.id === formData.id ? formData : o));
+                        showToast("Operador atualizado com sucesso!", "success");
+                    } else {
+                        setOperadores([...operadores, { ...formData, id: Date.now() }]);
+                        showToast("Novo operador cadastrado com sucesso!", "success");
+                    }
+                    setFormData(initialFormState);
                     setShowForm(false);
                 };
 
+                const editarOperador = (operador) => {
+                    setFormData(operador);
+                    setShowForm(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+
                 const removerOperador = (id) => {
-                    setOperadores(operadores.filter(o => o.id !== id));
-                    showToast("Registro removido.", "error");
+                    if(window.confirm("Deseja realmente remover este operador?")) {
+                        setOperadores(operadores.filter(o => o.id !== id));
+                        showToast("Registro removido.", "error");
+                    }
+                };
+
+                const cancelarEdicao = () => {
+                    setShowForm(!showForm);
+                    if(showForm) setFormData(initialFormState);
                 };
 
                 return (
@@ -468,7 +603,7 @@
                                 <h2 className="text-4xl font-black text-black uppercase font-display tracking-tight">Coletores & Operadores</h2>
                                 <p className="font-bold text-gray-600 uppercase mt-2">Gestão de equipe de campo.</p>
                             </div>
-                            <button onClick={() => setShowForm(!showForm)} className="neo-button neo-shadow-sm bg-black text-white px-6 py-3 border-4 border-black font-black uppercase text-sm flex items-center gap-2">
+                            <button onClick={cancelarEdicao} className={`neo-button neo-shadow-sm px-6 py-3 border-4 border-black font-black uppercase text-sm flex items-center gap-2 ${showForm ? 'bg-red-500 text-white' : 'bg-black text-white'}`}>
                                 {showForm ? <Icons.X /> : <Icons.Plus />} 
                                 {showForm ? 'Cancelar' : 'Novo Coletor'}
                             </button>
@@ -476,36 +611,38 @@
 
                         {showForm && (
                             <div className="bg-[#00E676] border-4 border-black neo-shadow p-6 mb-8 animate-fadeIn">
-                                <h3 className="font-black text-xl uppercase mb-4 border-b-2 border-black pb-2">Cadastrar Novo Coletor/Operador</h3>
+                                <h3 className="font-black text-xl uppercase mb-4 border-b-2 border-black pb-2">
+                                    {formData.id ? 'Editar Coletor/Operador' : 'Cadastrar Novo Coletor/Operador'}
+                                </h3>
                                 <form onSubmit={salvarOperador} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                                     <div className="flex flex-col group">
-                                        <label className="text-xs font-black uppercase mb-1">Matrícula ID</label>
-                                        <input type="text" required placeholder="EX: 99000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                        <label className="text-xs font-black uppercase mb-1">Matrícula ID *</label>
+                                        <input type="text" name="matricula" value={formData.matricula} onChange={handleInputChange} required placeholder="EX: 99000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
                                     </div>
                                     <div className="flex flex-col group xl:col-span-2">
-                                        <label className="text-xs font-black uppercase mb-1">Nome Completo</label>
-                                        <input type="text" required placeholder="NOME DO COLETOR" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                                        <label className="text-xs font-black uppercase mb-1">Nome Completo *</label>
+                                        <input type="text" name="nome" value={formData.nome} onChange={handleInputChange} required placeholder="NOME DO COLETOR" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
                                     </div>
                                     <div className="flex flex-col group">
                                         <label className="text-xs font-black uppercase mb-1">Turno Base</label>
-                                        <select className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
-                                            <option>DIURNO</option>
-                                            <option>NOTURNO</option>
-                                            <option>MADRUGADA</option>
+                                        <select name="turno" value={formData.turno} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                            <option value="1º TURNO">1º TURNO</option>
+                                            <option value="2º TURNO">2º TURNO</option>
+                                            <option value="3º TURNO">3º TURNO</option>
                                         </select>
                                     </div>
                                     <div className="flex flex-col group">
                                         <label className="text-xs font-black uppercase mb-1">Status</label>
-                                        <select className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
-                                            <option>ATIVO</option>
-                                            <option>INATIVO</option>
-                                            <option>FÉRIAS</option>
-                                            <option>AFASTADO</option>
+                                        <select name="status" value={formData.status} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                            <option value="ATIVO">ATIVO</option>
+                                            <option value="INATIVO">INATIVO</option>
+                                            <option value="FÉRIAS">FÉRIAS</option>
+                                            <option value="AFASTADO">AFASTADO</option>
                                         </select>
                                     </div>
                                     <div className="flex items-end xl:col-start-4">
-                                        <button type="submit" className="neo-button bg-black text-white border-4 border-black px-6 py-3 font-black uppercase w-full hover:bg-gray-800 transition-colors">
-                                            Salvar Registro
+                                        <button type="submit" className="neo-button bg-white text-black border-4 border-black px-6 py-3 font-black uppercase w-full hover:bg-black hover:text-white transition-colors">
+                                            {formData.id ? 'Atualizar Registro' : 'Salvar Registro'}
                                         </button>
                                     </div>
                                 </form>
@@ -535,7 +672,7 @@
                                                 </span>
                                             </td>
                                             <td className="p-4 text-center flex justify-center gap-2">
-                                                <button className="bg-[#FFE600] border-2 border-black p-2 hover:bg-black hover:text-[#FFE600] transition-colors"><Icons.Edit /></button>
+                                                <button onClick={() => editarOperador(o)} className="bg-[#FFE600] border-2 border-black p-2 hover:bg-black hover:text-[#FFE600] transition-colors"><Icons.Edit /></button>
                                                 <button onClick={() => removerOperador(o.id)} className="bg-[#FF3D00] text-white border-2 border-black p-2 hover:bg-black transition-colors"><Icons.Trash /></button>
                                             </td>
                                         </tr>
@@ -564,7 +701,7 @@
             const renderContent = () => {
                 switch (activeMenu) {
                     case 'lancamento': return <LancamentoDespachoScreen />;
-                    case 'baterias': return <BateriasScreen />;
+                    case 'baterias': return <BateriasScreen showToast={showToast} />;
                     case 'motoristas': return <CadastroMotoristasScreen showToast={showToast} />;
                     case 'operadores': return <CadastroOperadoresScreen showToast={showToast} />;
                     default: return <GenericScreen title={menuItems.flatMap(g => g.items).find(i => i.id === activeMenu)?.label || 'TELA EM DESENVOLVIMENTO'} />;
@@ -647,23 +784,23 @@
                     <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
                         {/* Cabeçalho Topo */}
                         <header className="h-20 bg-white border-b-4 border-black flex items-center justify-between px-10 z-10 flex-shrink-0 relative shadow-[0_6px_0_0_rgba(0,0,0,1)]">
-                            <h1 className="text-2xl font-black text-black uppercase tracking-wide font-display">
+                            <h1 className="text-2xl font-black text-black uppercase tracking-wide font-display hidden sm:block">
                                 <span className="text-gray-400 mr-2">/ </span>
                                 {menuItems.flatMap(g => g.items).find(i => i.id === activeMenu)?.label}
                             </h1>
-                            <div className="flex items-center gap-6 text-black font-bold text-sm uppercase">
-                                <button className="neo-button bg-white border-4 border-black px-4 py-2 hover:bg-[#FFE600] transition-colors flex gap-2 items-center neo-shadow-sm">
-                                    Avisos do Sistema
+                            <div className="flex items-center gap-4 sm:gap-6 text-black font-bold text-sm uppercase ml-auto">
+                                <button onClick={() => showToast("Você tem 3 novos avisos no sistema.", "success")} className="neo-button bg-white border-4 border-black px-4 py-2 hover:bg-[#FFE600] transition-colors flex gap-2 items-center neo-shadow-sm">
+                                    <Icons.Bell /> <span className="hidden sm:inline">Avisos</span>
                                     <span className="bg-red-500 text-white px-2 py-0.5 border-2 border-black font-black">3</span>
                                 </button>
-                                <button className="neo-button bg-black text-white border-4 border-black px-6 py-2 hover:bg-gray-800 transition-colors neo-shadow-sm">
-                                    Encerrar Sessão
+                                <button onClick={() => showToast("Sessão encerrada com segurança.", "error")} className="neo-button bg-black text-white border-4 border-black px-4 sm:px-6 py-2 hover:bg-gray-800 transition-colors neo-shadow-sm flex items-center gap-2">
+                                    <Icons.LogOut /> <span className="hidden sm:inline">Sair</span>
                                 </button>
                             </div>
                         </header>
 
                         {/* Corpo do Conteúdo */}
-                        <div className="flex-1 overflow-y-auto p-10">
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-10">
                             <div className="max-w-[1400px] mx-auto">
                                 {renderContent()}
                             </div>

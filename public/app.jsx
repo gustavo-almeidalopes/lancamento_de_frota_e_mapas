@@ -1,0 +1,1013 @@
+// ============================================================
+//  ECOLIMP - Gestão de Operações
+//  Frontend Application (React 18 + TailwindCSS)
+//
+//  Architecture notes:
+//  - All data is fetched from PHP REST endpoints under /api/.
+//  - The `apiFetch` wrapper handles JSON serialisation and maps
+//    API errors into the toast notification system.
+//  - Dispatch orders store arrays (mapas / operadores) as JSONB
+//    in PostgreSQL. They are sent as plain JS arrays in the
+//    request body and parsed back to arrays in the response.
+// ============================================================
+
+const { useState, useEffect } = React;
+
+// ── Formatting helpers (BR market standards) ──────────────
+const formatPlaca     = (v) => v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7);
+const formatCNH       = (v) => v.replace(/\D/g, '').slice(0, 11);
+const formatMatricula = (v) => v.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+const formatNome      = (v) => v.toUpperCase();
+
+// ── API base — works locally (via vercel dev) and in prod ──
+const API_BASE = '/api';
+
+/**
+ * Generic fetch wrapper.
+ * Throws an Error with the API's `message` field on non-2xx or
+ * `{ status: "error" }` responses so callers can catch uniformly.
+ */
+const apiFetch = async (endpoint, options = {}) => {
+    const url = `${API_BASE}/${endpoint}`;
+    const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+        ...options,
+    });
+    const json = await res.json();
+    if (!res.ok || json.status === 'error') {
+        throw new Error(json.message || `HTTP ${res.status}`);
+    }
+    return json;
+};
+
+// ── SVG Icon Library (unchanged from prototype) ───────────
+const Icons = {
+    Menu: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
+    X: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+    Truck: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>,
+    Battery: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><rect x="2" y="7" width="16" height="10"></rect><line x1="22" y1="11" x2="22" y2="13"></line></svg>,
+    Users: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
+    ClipboardList: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><line x1="12" y1="11" x2="16" y2="11"></line><line x1="12" y1="16" x2="16" y2="16"></line><line x1="8" y1="11" x2="8.01" y2="11"></line><line x1="8" y1="16" x2="8.01" y2="16"></line></svg>,
+    CheckCircle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
+    Plus: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
+    Edit: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
+    Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
+    Bell: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
+    LogOut: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>,
+    Loader: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{animation:'spin 1s linear infinite'}}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
+};
+
+// Inline keyframe for the loader (Tailwind doesn't ship `spin` without JIT)
+const spinStyle = document.createElement('style');
+spinStyle.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(spinStyle);
+
+// ============================================================
+//  SCREEN: Lançamento de Despacho
+// ============================================================
+const LancamentoDespachoScreen = ({ showToast }) => {
+    const emptyRow = () => ({ id: Date.now() + Math.random(), rastreador: '', statusRastreador: 'ATIVO', caminhao: '', motorista: '', operadores: [''], mapas: [''] });
+
+    const [despachos, setDespachos]   = useState([emptyRow()]);
+    const [isLoading, setIsLoading]   = useState(false);
+
+    /**
+     * Fetches the most recent batch of dispatch orders from the API
+     * and pre-fills the form.  The PHP endpoint returns maps_json and
+     * operators_json as already-parsed arrays (PDO FETCH_ASSOC +
+     * json_decode in dispatch.php).
+     */
+    const carregarProgramacaoAnterior = async () => {
+        setIsLoading(true);
+        try {
+            const result = await apiFetch('dispatch.php');
+            if (result.data && result.data.length > 0) {
+                const loaded = result.data.map(d => ({
+                    id:               d.id,
+                    rastreador:       d.tracker_id,
+                    statusRastreador: d.tracker_status,
+                    caminhao:         d.truck_plate,
+                    motorista:        d.driver_name,
+                    // maps_json / operators_json arrive as arrays from PHP
+                    mapas:      Array.isArray(d.maps_json)      && d.maps_json.length      ? d.maps_json      : [''],
+                    operadores: Array.isArray(d.operators_json) && d.operators_json.length ? d.operators_json : [''],
+                }));
+                setDespachos(loaded);
+                showToast("Programação anterior carregada com sucesso!", "success");
+            } else {
+                showToast("Nenhuma programação anterior encontrada.", "error");
+            }
+        } catch (err) {
+            showToast(err.message, "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const limparFormulario = () => {
+        setDespachos([emptyRow()]);
+        showToast("Formulário limpo.", "success");
+    };
+
+    const adicionarVeiculo = () => {
+        setDespachos([...despachos, emptyRow()]);
+        showToast("Novo veículo adicionado à rota.", "success");
+    };
+
+    const removerVeiculo = (id) => {
+        if (despachos.length === 1) { showToast("A rota precisa ter pelo menos um veículo.", "error"); return; }
+        setDespachos(despachos.filter(d => d.id !== id));
+        showToast("Veículo removido da rota.", "error");
+    };
+
+    const atualizarVeiculoCampo = (id, campo, valor) =>
+        setDespachos(despachos.map(d => d.id === id ? { ...d, [campo]: valor } : d));
+
+    const manipularArray = (id, chave, acao, index, valor) => {
+        setDespachos(despachos.map(d => {
+            if (d.id !== id) return d;
+            const arr = [...d[chave]];
+            if (acao === 'add')    arr.push('');
+            if (acao === 'remove') arr.splice(index, 1);
+            if (acao === 'update') arr[index] = valor;
+            return { ...d, [chave]: arr };
+        }));
+    };
+
+    /**
+     * Validates, then POSTs all dispatch rows as a batch.
+     * Each row's `mapas` and `operadores` arrays are sent as-is;
+     * PHP stores them in the JSONB columns maps_json / operators_json.
+     */
+    const validarESalvar = async () => {
+        const isValid = despachos.every(d => d.caminhao.trim() && d.rastreador.trim());
+        if (!isValid) { showToast("Preencha as placas e rastreadores antes de salvar.", "error"); return; }
+
+        setIsLoading(true);
+        try {
+            await apiFetch('dispatch.php', {
+                method: 'POST',
+                body: JSON.stringify({
+                    orders: despachos.map(d => ({
+                        tracker_id:     d.rastreador,
+                        tracker_status: d.statusRastreador,
+                        truck_plate:    d.caminhao,
+                        driver_name:    d.motorista,
+                        // Filter empty strings before persisting
+                        maps_json:      d.mapas.filter(m => m.trim() !== ''),
+                        operators_json: d.operadores.filter(o => o.trim() !== ''),
+                    }))
+                }),
+            });
+            showToast("Despachos salvos e confirmados na base de dados!", "success");
+        } catch (err) {
+            showToast(err.message, "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="space-y-8 animate-fadeIn">
+            <div className="flex flex-col xl:flex-row justify-between xl:items-end gap-6 border-b-4 border-black pb-6">
+                <div>
+                    <h2 className="text-4xl font-black text-black uppercase font-display tracking-tight">Lançamento de Despachos</h2>
+                    <p className="font-bold text-gray-600 uppercase mt-2 bg-[#FFE600] inline-block px-2 border-2 border-black">Vincule múltiplos mapas e rastreadores numa única tela.</p>
+                </div>
+                <div className="flex gap-4">
+                    <button onClick={carregarProgramacaoAnterior} disabled={isLoading} className="neo-button neo-shadow-sm bg-white text-black px-6 py-3 border-4 border-black font-black uppercase text-sm disabled:opacity-60">
+                        {isLoading ? <Icons.Loader /> : '↻ Carregar Anterior'}
+                    </button>
+                    <button onClick={limparFormulario} className="neo-button neo-shadow-sm bg-red-500 text-white px-6 py-3 border-4 border-black font-black uppercase text-sm">
+                        Limpar
+                    </button>
+                </div>
+            </div>
+
+            <div className="space-y-8">
+                {despachos.map((despacho, index) => (
+                    <div key={despacho.id} className="bg-white border-4 border-black neo-shadow p-6 relative transition-all">
+                        <div className="absolute -top-4 -left-4 bg-[#00E676] border-4 border-black w-12 h-12 flex items-center justify-center font-black text-xl neo-shadow-sm">
+                            {index + 1}
+                        </div>
+
+                        <div className="flex justify-between items-center mb-6 ml-10 border-b-4 border-black pb-4">
+                            <h3 className="font-black text-2xl uppercase font-display tracking-tighter">Veículo da Rota</h3>
+                            <button onClick={() => removerVeiculo(despacho.id)} className="neo-button bg-black text-white hover:bg-red-600 font-bold px-4 py-2 text-xs uppercase border-2 border-black">
+                                ✕ Remover
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                            <div className="flex flex-col group">
+                                <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Rastreador & Status *</label>
+                                <div className="flex border-4 border-black neo-shadow-sm">
+                                    <input type="text" required placeholder="EX: RST-1001" value={despacho.rastreador} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'rastreador', formatMatricula(e.target.value))} className="w-2/3 p-3 outline-none uppercase font-black text-lg focus:bg-[#FFE600] transition-colors border-r-4 border-black" />
+                                    <select value={despacho.statusRastreador} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'statusRastreador', e.target.value)} className={`w-1/3 p-3 outline-none uppercase font-bold text-sm cursor-pointer ${despacho.statusRastreador === 'ATIVO' ? 'bg-[#00E676]' : despacho.statusRastreador === 'MANUTENÇÃO' ? 'bg-[#FF3D00] text-white' : 'bg-gray-200'}`}>
+                                        <option value="ATIVO">ATIVO</option>
+                                        <option value="DESATIVADO">OFF</option>
+                                        <option value="MANUTENÇÃO">MANUT.</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col group">
+                                <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Placa do Caminhão *</label>
+                                <input type="text" required placeholder="EX: ABC1234" value={despacho.caminhao} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'caminhao', formatPlaca(e.target.value))} className="border-4 border-black p-3 outline-none uppercase font-black text-lg neo-shadow-sm focus:bg-[#FFE600] transition-colors" />
+                            </div>
+
+                            <div className="flex flex-col group">
+                                <label className="text-xs font-black uppercase mb-2 bg-black text-white px-2 py-1 w-max border-2 border-black group-focus-within:bg-[#FFE600] group-focus-within:text-black transition-colors">Motorista Responsável</label>
+                                <input type="text" placeholder="NOME DO MOTORISTA" value={despacho.motorista} onChange={(e) => atualizarVeiculoCampo(despacho.id, 'motorista', formatNome(e.target.value))} className="border-4 border-black p-3 outline-none uppercase font-black text-lg neo-shadow-sm focus:bg-[#FFE600] transition-colors" />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                            {/* Mapas Vinculados */}
+                            <div className="bg-[#f4f4f0] border-4 border-black p-5 neo-shadow-sm">
+                                <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
+                                    <label className="text-sm font-black uppercase flex items-center gap-2"><Icons.ClipboardList /> Mapas Vinculados</label>
+                                    <button type="button" onClick={() => manipularArray(despacho.id, 'mapas', 'add')} className="bg-[#00E676] text-black border-2 border-black px-3 py-1 text-xs font-black uppercase hover:bg-black hover:text-white transition-colors">
+                                        + Mapa
+                                    </button>
+                                </div>
+                                <div className="space-y-3">
+                                    {despacho.mapas.map((mapa, idx) => (
+                                        <div key={idx} className="flex border-2 border-black bg-white focus-within:bg-[#FFE600] transition-colors">
+                                            <span className="bg-black text-white px-3 py-2 font-black border-r-2 border-black">{idx + 1}</span>
+                                            <input type="text" placeholder="CÓDIGO (EX: CV100)" value={mapa} onChange={(e) => manipularArray(despacho.id, 'mapas', 'update', idx, formatMatricula(e.target.value))} className="w-full p-2 outline-none uppercase font-bold text-sm bg-transparent" />
+                                            <button type="button" onClick={() => manipularArray(despacho.id, 'mapas', 'remove', idx)} disabled={despacho.mapas.length === 1} className="bg-red-500 text-white font-black px-4 border-l-2 border-black hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">X</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Operadores */}
+                            <div className="bg-[#f4f4f0] border-4 border-black p-5 neo-shadow-sm">
+                                <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
+                                    <label className="text-sm font-black uppercase flex items-center gap-2"><Icons.Users /> Operadores (Matrícula)</label>
+                                    <button type="button" onClick={() => manipularArray(despacho.id, 'operadores', 'add')} className="bg-[#00E676] text-black border-2 border-black px-3 py-1 text-xs font-black uppercase hover:bg-black hover:text-white transition-colors">
+                                        + Operador
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {despacho.operadores.map((op, idx) => (
+                                        <div key={idx} className="flex border-2 border-black bg-white focus-within:bg-[#FFE600] transition-colors">
+                                            <input type="text" placeholder="MATRÍCULA" value={op} onChange={(e) => manipularArray(despacho.id, 'operadores', 'update', idx, formatMatricula(e.target.value))} className="w-full p-2 outline-none uppercase font-bold text-sm bg-transparent" />
+                                            <button type="button" onClick={() => manipularArray(despacho.id, 'operadores', 'remove', idx)} disabled={despacho.operadores.length === 1} className="bg-red-500 text-white font-black px-3 border-l-2 border-black hover:bg-red-700 disabled:opacity-50">X</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-6 pt-6 border-t-4 border-black mt-8">
+                <button onClick={adicionarVeiculo} className="neo-button bg-white text-black border-4 border-black px-8 py-4 font-black uppercase text-lg w-full sm:w-auto neo-shadow flex items-center justify-center gap-2">
+                    <span>+</span> Novo Veículo à Rota
+                </button>
+                <button onClick={validarESalvar} disabled={isLoading} className="neo-button bg-[#00E676] text-black border-4 border-black px-10 py-4 font-black uppercase text-lg w-full sm:w-auto neo-shadow flex items-center justify-center gap-2 disabled:opacity-60">
+                    {isLoading ? <Icons.Loader /> : <><Icons.CheckCircle /> Confirmar e Salvar</>}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// ============================================================
+//  SCREEN: Consulta de Ordens de Despacho
+// ============================================================
+const ConsultaOrdensScreen = ({ showToast }) => {
+    const [ordens, setOrdens]       = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        apiFetch('dispatch.php')
+            .then(r => setOrdens(r.data || []))
+            .catch(err => showToast(err.message, "error"))
+            .finally(() => setIsLoading(false));
+    }, []);
+
+    const removerOrdem = async (id) => {
+        if (!window.confirm("Deseja remover esta ordem de despacho?")) return;
+        try {
+            await apiFetch(`dispatch.php?id=${id}`, { method: 'DELETE' });
+            setOrdens(ordens.filter(o => o.id !== id));
+            showToast("Ordem removida.", "error");
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    };
+
+    return (
+        <div className="space-y-8 animate-fadeIn">
+            <div className="border-b-4 border-black pb-6">
+                <h2 className="text-4xl font-black text-black uppercase font-display tracking-tight">Consulta de Ordens</h2>
+                <p className="font-bold text-gray-600 uppercase mt-2">Histórico de despachos registrados.</p>
+            </div>
+
+            {isLoading ? (
+                <div className="flex justify-center items-center h-40"><Icons.Loader /></div>
+            ) : (
+                <div className="bg-white border-4 border-black neo-shadow overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-max">
+                        <thead>
+                            <tr className="bg-black text-white text-xs uppercase tracking-wider">
+                                <th className="p-4 font-black border-r-2 border-gray-700">Rastreador</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Status</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Placa</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Motorista</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Mapas</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Operadores</th>
+                                <th className="p-4 font-black text-center w-20">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm font-bold text-gray-800">
+                            {ordens.length === 0 ? (
+                                <tr><td colSpan="7" className="p-8 text-center text-gray-400 font-black uppercase">Nenhuma ordem registrada.</td></tr>
+                            ) : ordens.map((o, i) => (
+                                <tr key={o.id} className={`border-b-2 border-gray-200 hover:bg-[#f4f4f0] transition-colors ${i % 2 === 1 ? 'bg-gray-50' : ''}`}>
+                                    <td className="p-4 border-r-2 border-gray-200 font-black">{o.tracker_id}</td>
+                                    <td className="p-4 border-r-2 border-gray-200">
+                                        <span className={`px-2 py-1 border-2 border-black text-xs font-black ${o.tracker_status === 'ATIVO' ? 'bg-[#00E676]' : o.tracker_status === 'MANUTENÇÃO' ? 'bg-[#FF3D00] text-white' : 'bg-gray-200'}`}>
+                                            {o.tracker_status}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 border-r-2 border-gray-200">{o.truck_plate}</td>
+                                    <td className="p-4 border-r-2 border-gray-200">{o.driver_name || '—'}</td>
+                                    <td className="p-4 border-r-2 border-gray-200 text-xs">{(o.maps_json || []).join(', ') || '—'}</td>
+                                    <td className="p-4 border-r-2 border-gray-200 text-xs">{(o.operators_json || []).join(', ') || '—'}</td>
+                                    <td className="p-4 text-center">
+                                        <button onClick={() => removerOrdem(o.id)} className="bg-[#FF3D00] text-white border-2 border-black p-2 hover:bg-black transition-colors"><Icons.Trash /></button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ============================================================
+//  SCREEN: Status de Baterias / Equipamentos
+// ============================================================
+const BateriasScreen = ({ showToast }) => {
+    const [equipamentos, setEquipamentos] = useState([]);
+    const [isLoading, setIsLoading]       = useState(true);
+
+    useEffect(() => {
+        apiFetch('equipment.php')
+            .then(r => setEquipamentos(r.data || []))
+            .catch(err => showToast(err.message, "error"))
+            .finally(() => setIsLoading(false));
+    }, []);
+
+    // Derived statistics computed from live data
+    const offList = equipamentos.filter(e => e.communication === 'OFF');
+    const onList  = equipamentos.filter(e => e.communication === 'ON');
+
+    const stat = (list, statusValue) => list.filter(e => e.battery_status === statusValue).length;
+
+    const gerarRelatorio = (tipo) => showToast(`Iniciando download do relatório em ${tipo}...`, "success");
+
+    const badgeColor = (status) => {
+        const map = {
+            'DESCARREGADO':       'bg-[#FF3D00] text-white',
+            'RECARGA URGENTE':    'bg-orange-500 text-white',
+            'IMINÊNCIA DE RECARGA': 'bg-yellow-400 text-black',
+            'CARREGADO':          'bg-[#00E676] text-black',
+            'CARGA TRABALHO':     'bg-blue-400 text-white',
+        };
+        return map[status] || 'bg-gray-200 text-gray-700';
+    };
+
+    return (
+        <div className="space-y-8 animate-fadeIn">
+            <h2 className="text-4xl font-black text-black uppercase font-display border-b-4 border-black pb-4 mb-6">Status da Frota e Baterias</h2>
+
+            {isLoading ? (
+                <div className="flex justify-center items-center h-40"><Icons.Loader /></div>
+            ) : (
+                <>
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        {/* OFF */}
+                        <div className="border-4 border-black bg-white neo-shadow flex flex-col">
+                            <div className="bg-[#FF3D00] text-white text-center py-4 border-b-4 border-black">
+                                <h3 className="font-black uppercase text-xl font-display">Rastreador OFF</h3>
+                                <p className="font-black text-6xl tracking-tighter mt-2">{offList.length}</p>
+                            </div>
+                            <div className="flex-1 p-6 bg-[#f4f4f0] grid grid-cols-2 gap-4">
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Descarregado</p><p className="font-black text-2xl">{stat(offList, 'DESCARREGADO')}</p></div>
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Recarga Urgente</p><p className="font-black text-2xl">{stat(offList, 'RECARGA URGENTE')}</p></div>
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm col-span-2"><p className="text-[10px] font-black uppercase text-gray-500">Iminência de Recarga</p><p className="font-black text-2xl">{stat(offList, 'IMINÊNCIA DE RECARGA')}</p></div>
+                            </div>
+                        </div>
+
+                        {/* ON */}
+                        <div className="border-4 border-black bg-white neo-shadow flex flex-col">
+                            <div className="bg-[#00E676] text-black text-center py-4 border-b-4 border-black">
+                                <h3 className="font-black uppercase text-xl font-display">Rastreador ON</h3>
+                                <p className="font-black text-6xl tracking-tighter mt-2">{onList.length}</p>
+                            </div>
+                            <div className="flex-1 p-6 bg-[#f4f4f0] grid grid-cols-2 gap-4">
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Carregado</p><p className="font-black text-2xl">{stat(onList, 'CARREGADO')}</p></div>
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm"><p className="text-[10px] font-black uppercase text-gray-500">Carga Trabalho</p><p className="font-black text-2xl">{stat(onList, 'CARGA TRABALHO')}</p></div>
+                                <div className="border-2 border-black bg-white p-3 text-center neo-shadow-sm col-span-2"><p className="text-[10px] font-black uppercase text-gray-500">Iminência de Recarga</p><p className="font-black text-2xl">{stat(onList, 'IMINÊNCIA DE RECARGA')}</p></div>
+                            </div>
+                        </div>
+
+                        {/* Total */}
+                        <div className="border-4 border-black bg-black text-white neo-shadow flex flex-col items-center justify-center p-8 relative overflow-hidden">
+                            <div className="absolute -right-10 -bottom-10 opacity-10 text-[200px]"><Icons.Truck /></div>
+                            <h3 className="font-black uppercase text-2xl text-[#FFE600] font-display z-10">Total da Frota</h3>
+                            <p className="font-black text-8xl mt-4 z-10">{equipamentos.length}</p>
+                            <button onClick={() => gerarRelatorio('PDF GERAL')} className="mt-8 neo-button bg-white text-black font-black uppercase px-6 py-3 border-2 border-black text-sm z-10 w-full hover:bg-[#FFE600]">
+                                Gerar Relatório
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white border-4 border-black neo-shadow overflow-hidden mt-8">
+                        <div className="flex gap-4 p-4 border-b-4 border-black bg-[#FFE600] items-center">
+                            <span className="font-black uppercase flex-1">Listagem Detalhada</span>
+                            <button onClick={() => gerarRelatorio('PDF')} className="neo-button bg-black text-white font-bold text-xs px-4 py-2 uppercase border-2 border-black hover:bg-gray-800">PDF</button>
+                            <button onClick={() => gerarRelatorio('EXCEL')} className="neo-button bg-white text-black font-bold text-xs px-4 py-2 uppercase border-2 border-black hover:bg-gray-200">EXCEL</button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-max">
+                                <thead>
+                                    <tr className="bg-black text-white text-xs uppercase tracking-wider">
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Equipamento</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Placa</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Status de Bateria</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Comunicação</th>
+                                        <th className="p-4 font-black border-r-2 border-gray-700">Bateria %</th>
+                                        <th className="p-4 font-black">Última Comunicação</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm font-bold text-gray-800">
+                                    {equipamentos.length === 0 ? (
+                                        <tr><td colSpan="6" className="p-8 text-center text-gray-400 font-black uppercase">Nenhum equipamento cadastrado.</td></tr>
+                                    ) : equipamentos.map((eq, i) => (
+                                        <tr key={eq.id} className={`border-b-2 border-gray-200 hover:bg-[#FFE600] transition-colors cursor-pointer ${i % 2 === 1 ? 'bg-gray-50' : ''}`}>
+                                            <td className="p-4 border-r-2 border-gray-200">{eq.equipment_id}</td>
+                                            <td className="p-4 border-r-2 border-gray-200">{eq.plate || 'N/A'}</td>
+                                            <td className="p-4 border-r-2 border-gray-200">
+                                                <span className={`px-2 py-1 border-2 border-black text-xs font-black ${badgeColor(eq.battery_status)}`}>{eq.battery_status}</span>
+                                            </td>
+                                            <td className="p-4 border-r-2 border-gray-200">{eq.communication}</td>
+                                            <td className="p-4 border-r-2 border-gray-200">{eq.battery_percentage}%</td>
+                                            <td className="p-4">{eq.last_communication ? new Date(eq.last_communication).toLocaleString('pt-BR') : '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
+// ============================================================
+//  SCREEN: Cadastro de Motoristas
+// ============================================================
+const CadastroMotoristasScreen = ({ showToast }) => {
+    const [motoristas, setMotoristas] = useState([]);
+    const [isLoading, setIsLoading]   = useState(true);
+
+    const initialFormState = { id: null, matricula: '', nome: '', cnh: '', categoria: 'B', turno: '1º TURNO', setor: 'OPERAÇÃO', status: 'ATIVO' };
+    const [formData, setFormData] = useState(initialFormState);
+    const [showForm, setShowForm] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Load drivers on mount
+    useEffect(() => {
+        apiFetch('drivers.php')
+            .then(r => setMotoristas(r.data || []))
+            .catch(err => showToast(err.message, "error"))
+            .finally(() => setIsLoading(false));
+    }, []);
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        let v = value;
+        if (name === 'cnh')       v = formatCNH(value);
+        if (name === 'matricula') v = formatMatricula(value);
+        if (name === 'nome')      v = formatNome(value);
+        setFormData({ ...formData, [name]: v });
+    };
+
+    const salvarMotorista = async (e) => {
+        e.preventDefault();
+        if (formData.cnh.length < 11) { showToast("A CNH deve conter 11 dígitos.", "error"); return; }
+
+        setIsSaving(true);
+        try {
+            if (formData.id) {
+                // PUT — update existing driver
+                await apiFetch(`drivers.php?id=${formData.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(formData),
+                });
+                setMotoristas(motoristas.map(m => m.id === formData.id ? { ...formData } : m));
+                showToast("Motorista atualizado com sucesso!", "success");
+            } else {
+                // POST — create new driver
+                const result = await apiFetch('drivers.php', {
+                    method: 'POST',
+                    body: JSON.stringify(formData),
+                });
+                setMotoristas([...motoristas, result.data]);
+                showToast("Novo motorista cadastrado com sucesso!", "success");
+            }
+            setFormData(initialFormState);
+            setShowForm(false);
+        } catch (err) {
+            showToast(err.message, "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const editarMotorista = (motorista) => {
+        setFormData(motorista);
+        setShowForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const removerMotorista = async (id) => {
+        if (!window.confirm("Deseja realmente remover este motorista?")) return;
+        try {
+            await apiFetch(`drivers.php?id=${id}`, { method: 'DELETE' });
+            setMotoristas(motoristas.filter(m => m.id !== id));
+            showToast("Registro removido.", "error");
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    };
+
+    const cancelarEdicao = () => {
+        setShowForm(!showForm);
+        if (showForm) setFormData(initialFormState);
+    };
+
+    return (
+        <div className="space-y-8 animate-fadeIn">
+            <div className="flex flex-col md:flex-row justify-between md:items-end gap-6 border-b-4 border-black pb-6">
+                <div>
+                    <h2 className="text-4xl font-black text-black uppercase font-display tracking-tight">Motoristas</h2>
+                    <p className="font-bold text-gray-600 uppercase mt-2">Gestão de condutores de frota.</p>
+                </div>
+                <button onClick={cancelarEdicao} className={`neo-button neo-shadow-sm px-6 py-3 border-4 border-black font-black uppercase text-sm flex items-center gap-2 ${showForm ? 'bg-red-500 text-white' : 'bg-black text-white'}`}>
+                    {showForm ? <Icons.X /> : <Icons.Plus />}
+                    {showForm ? 'Cancelar' : 'Novo Motorista'}
+                </button>
+            </div>
+
+            {showForm && (
+                <div className="bg-[#FFE600] border-4 border-black neo-shadow p-6 mb-8 animate-fadeIn">
+                    <h3 className="font-black text-xl uppercase mb-4 border-b-2 border-black pb-2">
+                        {formData.id ? 'Editar Motorista' : 'Cadastrar Novo Motorista'}
+                    </h3>
+                    <form onSubmit={salvarMotorista} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                        <div className="flex flex-col group">
+                            <label className="text-xs font-black uppercase mb-1">Matrícula *</label>
+                            <input type="text" name="matricula" value={formData.matricula} onChange={handleInputChange} required placeholder="EX: MOT-0000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                        </div>
+                        <div className="flex flex-col group xl:col-span-2">
+                            <label className="text-xs font-black uppercase mb-1">Nome Completo *</label>
+                            <input type="text" name="nome" value={formData.nome} onChange={handleInputChange} required placeholder="NOME DO MOTORISTA" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                        </div>
+                        <div className="flex flex-col group">
+                            <label className="text-xs font-black uppercase mb-1">Status</label>
+                            <select name="status" value={formData.status} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                <option value="ATIVO">ATIVO</option>
+                                <option value="INATIVO">INATIVO</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col group">
+                            <label className="text-xs font-black uppercase mb-1">Nº CNH *</label>
+                            <input type="text" name="cnh" value={formData.cnh} onChange={handleInputChange} required placeholder="00000000000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                        </div>
+                        <div className="flex flex-col group">
+                            <label className="text-xs font-black uppercase mb-1">Categoria CNH</label>
+                            <select name="categoria" value={formData.categoria} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                <option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col group">
+                            <label className="text-xs font-black uppercase mb-1">Turno Base</label>
+                            <select name="turno" value={formData.turno} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                <option value="1º TURNO">1º TURNO</option>
+                                <option value="2º TURNO">2º TURNO</option>
+                                <option value="3º TURNO">3º TURNO</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col group xl:col-span-2">
+                            <label className="text-xs font-black uppercase mb-1">Setor</label>
+                            <div className="flex flex-col sm:flex-row gap-4 h-full">
+                                {['OPERAÇÃO', 'ADMINISTRATIVO'].map(s => (
+                                    <label key={s} className={`flex-1 flex items-center justify-center gap-2 p-2 border-4 border-black cursor-pointer transition-all font-black uppercase ${formData.setor === s ? 'bg-[#FFE600] neo-shadow-sm -translate-y-1 -translate-x-1' : 'bg-white hover:bg-gray-50'}`}>
+                                        <input type="radio" name="setor" value={s} checked={formData.setor === s} onChange={handleInputChange} className="hidden" />
+                                        <span className="text-lg">{s === 'OPERAÇÃO' ? '🚛' : '🚗'}</span> {s === 'OPERAÇÃO' ? 'Operação' : 'Admin.'}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex items-end xl:col-span-2">
+                            <button type="submit" disabled={isSaving} className="neo-button bg-white text-black border-4 border-black px-6 py-3 font-black uppercase w-full hover:bg-black hover:text-white transition-colors h-[52px] disabled:opacity-60">
+                                {isSaving ? 'Salvando...' : (formData.id ? 'Atualizar Registro' : 'Salvar Registro')}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {isLoading ? (
+                <div className="flex justify-center items-center h-40"><Icons.Loader /></div>
+            ) : (
+                <div className="bg-white border-4 border-black neo-shadow overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-max">
+                        <thead>
+                            <tr className="bg-black text-white text-xs uppercase tracking-wider">
+                                <th className="p-4 font-black border-r-2 border-gray-700">Matrícula</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Nome do Condutor</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">CNH</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Cat.</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Turno</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Status</th>
+                                <th className="p-4 font-black text-center w-24">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm font-bold text-gray-800">
+                            {motoristas.length === 0 ? (
+                                <tr><td colSpan="7" className="p-8 text-center text-gray-400 font-black uppercase">Nenhum motorista cadastrado.</td></tr>
+                            ) : motoristas.map((m) => (
+                                <tr key={m.id} className="border-b-2 border-gray-200 hover:bg-[#f4f4f0] transition-colors">
+                                    <td className="p-4 border-r-2 border-gray-200">{m.matricula}</td>
+                                    <td className="p-4 border-r-2 border-gray-200">{m.nome}</td>
+                                    <td className="p-4 border-r-2 border-gray-200">{m.cnh}</td>
+                                    <td className="p-4 border-r-2 border-gray-200"><span className="bg-black text-white px-2 py-1 font-black">{m.categoria}</span></td>
+                                    <td className="p-4 border-r-2 border-gray-200">{m.turno}</td>
+                                    <td className="p-4 border-r-2 border-gray-200">
+                                        <span className={`px-2 py-1 border-2 border-black text-xs font-black ${m.status === 'ATIVO' ? 'bg-[#00E676] text-black' : 'bg-gray-200 text-gray-500'}`}>{m.status}</span>
+                                    </td>
+                                    <td className="p-4 text-center flex justify-center gap-2">
+                                        <button onClick={() => editarMotorista(m)} className="bg-[#FFE600] border-2 border-black p-2 hover:bg-black hover:text-[#FFE600] transition-colors"><Icons.Edit /></button>
+                                        <button onClick={() => removerMotorista(m.id)} className="bg-[#FF3D00] text-white border-2 border-black p-2 hover:bg-black transition-colors"><Icons.Trash /></button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ============================================================
+//  SCREEN: Cadastro de Operadores / Coletores
+// ============================================================
+const CadastroOperadoresScreen = ({ showToast }) => {
+    const [operadores, setOperadores] = useState([]);
+    const [isLoading, setIsLoading]   = useState(true);
+
+    const initialFormState = { id: null, matricula: '', nome: '', turno: '1º TURNO', status: 'ATIVO' };
+    const [formData, setFormData] = useState(initialFormState);
+    const [showForm, setShowForm] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        apiFetch('operators.php')
+            .then(r => setOperadores(r.data || []))
+            .catch(err => showToast(err.message, "error"))
+            .finally(() => setIsLoading(false));
+    }, []);
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        let v = value;
+        if (name === 'matricula') v = formatMatricula(value);
+        if (name === 'nome')      v = formatNome(value);
+        setFormData({ ...formData, [name]: v });
+    };
+
+    const salvarOperador = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            if (formData.id) {
+                await apiFetch(`operators.php?id=${formData.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(formData),
+                });
+                setOperadores(operadores.map(o => o.id === formData.id ? { ...formData } : o));
+                showToast("Operador atualizado com sucesso!", "success");
+            } else {
+                const result = await apiFetch('operators.php', {
+                    method: 'POST',
+                    body: JSON.stringify(formData),
+                });
+                setOperadores([...operadores, result.data]);
+                showToast("Novo operador cadastrado com sucesso!", "success");
+            }
+            setFormData(initialFormState);
+            setShowForm(false);
+        } catch (err) {
+            showToast(err.message, "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const editarOperador = (operador) => {
+        setFormData(operador);
+        setShowForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const removerOperador = async (id) => {
+        if (!window.confirm("Deseja realmente remover este operador?")) return;
+        try {
+            await apiFetch(`operators.php?id=${id}`, { method: 'DELETE' });
+            setOperadores(operadores.filter(o => o.id !== id));
+            showToast("Registro removido.", "error");
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    };
+
+    const cancelarEdicao = () => {
+        setShowForm(!showForm);
+        if (showForm) setFormData(initialFormState);
+    };
+
+    return (
+        <div className="space-y-8 animate-fadeIn">
+            <div className="flex flex-col md:flex-row justify-between md:items-end gap-6 border-b-4 border-black pb-6">
+                <div>
+                    <h2 className="text-4xl font-black text-black uppercase font-display tracking-tight">Coletores & Operadores</h2>
+                    <p className="font-bold text-gray-600 uppercase mt-2">Gestão de equipe de campo.</p>
+                </div>
+                <button onClick={cancelarEdicao} className={`neo-button neo-shadow-sm px-6 py-3 border-4 border-black font-black uppercase text-sm flex items-center gap-2 ${showForm ? 'bg-red-500 text-white' : 'bg-black text-white'}`}>
+                    {showForm ? <Icons.X /> : <Icons.Plus />}
+                    {showForm ? 'Cancelar' : 'Novo Coletor'}
+                </button>
+            </div>
+
+            {showForm && (
+                <div className="bg-[#00E676] border-4 border-black neo-shadow p-6 mb-8 animate-fadeIn">
+                    <h3 className="font-black text-xl uppercase mb-4 border-b-2 border-black pb-2">
+                        {formData.id ? 'Editar Coletor/Operador' : 'Cadastrar Novo Coletor/Operador'}
+                    </h3>
+                    <form onSubmit={salvarOperador} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                        <div className="flex flex-col group">
+                            <label className="text-xs font-black uppercase mb-1">Matrícula ID *</label>
+                            <input type="text" name="matricula" value={formData.matricula} onChange={handleInputChange} required placeholder="EX: 99000" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                        </div>
+                        <div className="flex flex-col group xl:col-span-2">
+                            <label className="text-xs font-black uppercase mb-1">Nome Completo *</label>
+                            <input type="text" name="nome" value={formData.nome} onChange={handleInputChange} required placeholder="NOME DO COLETOR" className="border-4 border-black p-3 outline-none uppercase font-black focus:bg-white transition-colors" />
+                        </div>
+                        <div className="flex flex-col group">
+                            <label className="text-xs font-black uppercase mb-1">Turno Base</label>
+                            <select name="turno" value={formData.turno} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                <option value="1º TURNO">1º TURNO</option>
+                                <option value="2º TURNO">2º TURNO</option>
+                                <option value="3º TURNO">3º TURNO</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col group">
+                            <label className="text-xs font-black uppercase mb-1">Status</label>
+                            <select name="status" value={formData.status} onChange={handleInputChange} className="border-4 border-black p-3 outline-none uppercase font-black bg-white cursor-pointer">
+                                <option value="ATIVO">ATIVO</option>
+                                <option value="INATIVO">INATIVO</option>
+                                <option value="FÉRIAS">FÉRIAS</option>
+                                <option value="AFASTADO">AFASTADO</option>
+                            </select>
+                        </div>
+                        <div className="flex items-end xl:col-start-4">
+                            <button type="submit" disabled={isSaving} className="neo-button bg-white text-black border-4 border-black px-6 py-3 font-black uppercase w-full hover:bg-black hover:text-white transition-colors disabled:opacity-60">
+                                {isSaving ? 'Salvando...' : (formData.id ? 'Atualizar Registro' : 'Salvar Registro')}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {isLoading ? (
+                <div className="flex justify-center items-center h-40"><Icons.Loader /></div>
+            ) : (
+                <div className="bg-white border-4 border-black neo-shadow overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-max">
+                        <thead>
+                            <tr className="bg-black text-white text-xs uppercase tracking-wider">
+                                <th className="p-4 font-black border-r-2 border-gray-700">Matrícula</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700 w-1/2">Nome do Coletor</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Turno</th>
+                                <th className="p-4 font-black border-r-2 border-gray-700">Status</th>
+                                <th className="p-4 font-black text-center w-24">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm font-bold text-gray-800">
+                            {operadores.length === 0 ? (
+                                <tr><td colSpan="5" className="p-8 text-center text-gray-400 font-black uppercase">Nenhum operador cadastrado.</td></tr>
+                            ) : operadores.map((o) => (
+                                <tr key={o.id} className="border-b-2 border-gray-200 hover:bg-[#f4f4f0] transition-colors">
+                                    <td className="p-4 border-r-2 border-gray-200 font-black">{o.matricula}</td>
+                                    <td className="p-4 border-r-2 border-gray-200">{o.nome}</td>
+                                    <td className="p-4 border-r-2 border-gray-200">{o.turno}</td>
+                                    <td className="p-4 border-r-2 border-gray-200">
+                                        <span className={`px-2 py-1 border-2 border-black text-xs font-black ${o.status === 'ATIVO' ? 'bg-[#00E676] text-black' : o.status === 'FÉRIAS' ? 'bg-[#FFE600] text-black' : 'bg-gray-200 text-gray-500'}`}>
+                                            {o.status}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-center flex justify-center gap-2">
+                                        <button onClick={() => editarOperador(o)} className="bg-[#FFE600] border-2 border-black p-2 hover:bg-black hover:text-[#FFE600] transition-colors"><Icons.Edit /></button>
+                                        <button onClick={() => removerOperador(o.id)} className="bg-[#FF3D00] text-white border-2 border-black p-2 hover:bg-black transition-colors"><Icons.Trash /></button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── Generic placeholder for unbuilt screens ───────────────
+const GenericScreen = ({ title, setActiveMenu }) => (
+    <div className="flex flex-col items-center justify-center h-[70vh] text-black border-4 border-black bg-white neo-shadow p-12 text-center relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-4 bg-[#FFE600] border-b-4 border-black"></div>
+        <h2 className="text-5xl font-black uppercase font-display mb-6 tracking-tighter">{title}</h2>
+        <p className="font-bold uppercase text-gray-500 max-w-lg text-lg border-2 border-black p-4 bg-[#f4f4f0]">
+            Módulo atualmente em arquitetura técnica. Em breve disponível com a nova interface.
+        </p>
+        <button onClick={() => setActiveMenu('lancamento')} className="mt-8 neo-button bg-black text-white font-black px-8 py-4 uppercase border-4 border-black neo-shadow-sm">
+            Voltar para Operação
+        </button>
+    </div>
+);
+
+// ============================================================
+//  ROOT: App Component
+// ============================================================
+function App() {
+    const [activeMenu, setActiveMenu]   = useState('lancamento');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [toasts, setToasts]           = useState([]);
+
+    const showToast = (message, type = 'success') => {
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, message, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+    };
+
+    const menuItems = [
+        {
+            category: "OPERAÇÃO",
+            icon: Icons.Truck,
+            items: [
+                { id: 'lancamento',  label: 'NOVO DESPACHO' },
+                { id: 'despacho',    label: 'CONSULTA ORDENS' },
+                { id: 'agendamento', label: 'PRÉ-AGENDAMENTO' },
+                { id: 'percentual',  label: 'PERCENTUAL EXECUÇÃO' },
+            ]
+        },
+        {
+            category: "EQUIPAMENTOS",
+            icon: Icons.Battery,
+            items: [
+                { id: 'baterias', label: 'STATUS BATERIAS' },
+            ]
+        },
+        {
+            category: "CADASTROS",
+            icon: Icons.Users,
+            items: [
+                { id: 'motoristas', label: 'MOTORISTAS' },
+                { id: 'operadores', label: 'COLETORES/OPERAD.' },
+            ]
+        }
+    ];
+
+    const renderContent = () => {
+        switch (activeMenu) {
+            case 'lancamento': return <LancamentoDespachoScreen showToast={showToast} />;
+            case 'despacho':   return <ConsultaOrdensScreen showToast={showToast} />;
+            case 'baterias':   return <BateriasScreen showToast={showToast} />;
+            case 'motoristas': return <CadastroMotoristasScreen showToast={showToast} />;
+            case 'operadores': return <CadastroOperadoresScreen showToast={showToast} />;
+            default:
+                const label = menuItems.flatMap(g => g.items).find(i => i.id === activeMenu)?.label || 'EM DESENVOLVIMENTO';
+                return <GenericScreen title={label} setActiveMenu={setActiveMenu} />;
+        }
+    };
+
+    return (
+        <div className="flex h-screen bg-[#f4f4f0] overflow-hidden text-black">
+
+            {/* Toast notifications */}
+            <div className="fixed top-20 right-8 z-50 flex flex-col gap-4 pointer-events-none">
+                {toasts.map(toast => (
+                    <div key={toast.id} className={`animate-toast pointer-events-auto border-4 border-black p-4 neo-shadow flex items-center gap-4 ${toast.type === 'success' ? 'bg-[#00E676] text-black' : 'bg-[#FF3D00] text-white'}`}>
+                        <Icons.CheckCircle />
+                        <span className="font-black uppercase tracking-tight">{toast.message}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Sidebar */}
+            <aside className={`bg-white transition-all duration-300 flex flex-col border-r-4 border-black shadow-[6px_0_0_0_rgba(0,0,0,1)] z-20 relative ${isSidebarOpen ? 'w-80' : 'w-24'}`}>
+                <div className="h-20 flex items-center justify-between px-6 border-b-4 border-black bg-[#FFE600] flex-shrink-0">
+                    {isSidebarOpen && <span className="font-black text-3xl font-display tracking-tighter uppercase">Ecolimp.</span>}
+                    <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="neo-button bg-black text-white p-2 hover:bg-white hover:text-black transition-colors font-bold border-2 border-black flex-shrink-0">
+                        {isSidebarOpen ? <Icons.X /> : <Icons.Menu />}
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto py-6">
+                    {menuItems.map((group, idx) => (
+                        <div key={idx} className="mb-8">
+                            {isSidebarOpen ? (
+                                <div className="px-6 flex items-center gap-2 font-black text-black uppercase tracking-widest mb-4 border-b-2 border-black pb-2 mx-6">
+                                    <group.icon /> {group.category}
+                                </div>
+                            ) : (
+                                <div className="flex justify-center mb-4 text-black"><group.icon /></div>
+                            )}
+                            <ul className="space-y-2 px-4">
+                                {group.items.map((item) => {
+                                    const isActive = activeMenu === item.id;
+                                    return (
+                                        <li key={item.id}>
+                                            <button
+                                                onClick={() => setActiveMenu(item.id)}
+                                                className={`w-full flex items-center text-left px-4 py-3 font-bold uppercase text-xs tracking-wider transition-all border-4 ${
+                                                    isActive
+                                                        ? 'bg-black text-white border-black neo-shadow-sm translate-x-1'
+                                                        : 'bg-white text-black border-transparent hover:border-black hover:bg-[#f4f4f0]'
+                                                } ${!isSidebarOpen && 'justify-center px-1 text-[10px] text-center'}`}
+                                            >
+                                                {isSidebarOpen ? item.label : item.label.substring(0, 3)}
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
+
+                {/* User profile */}
+                <div className="p-6 border-t-4 border-black flex items-center bg-white flex-shrink-0">
+                    <div className="w-12 h-12 bg-[#00E676] text-black border-4 border-black flex items-center justify-center flex-shrink-0 neo-shadow-sm font-display text-xl font-black">
+                        JS
+                    </div>
+                    {isSidebarOpen && (
+                        <div className="ml-4 overflow-hidden">
+                            <p className="text-sm font-black text-black uppercase truncate">JOÃO SUPERVISOR</p>
+                            <p className="text-xs text-gray-500 font-bold uppercase truncate">ID: 99482</p>
+                        </div>
+                    )}
+                </div>
+            </aside>
+
+            {/* Main content area */}
+            <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+                <header className="h-20 bg-white border-b-4 border-black flex items-center justify-between px-10 z-10 flex-shrink-0 relative shadow-[0_6px_0_0_rgba(0,0,0,1)]">
+                    <h1 className="text-2xl font-black text-black uppercase tracking-wide font-display hidden sm:block">
+                        <span className="text-gray-400 mr-2">/ </span>
+                        {menuItems.flatMap(g => g.items).find(i => i.id === activeMenu)?.label}
+                    </h1>
+                    <div className="flex items-center gap-4 sm:gap-6 text-black font-bold text-sm uppercase ml-auto">
+                        <button onClick={() => showToast("Você tem 3 novos avisos no sistema.", "success")} className="neo-button bg-white border-4 border-black px-4 py-2 hover:bg-[#FFE600] transition-colors flex gap-2 items-center neo-shadow-sm">
+                            <Icons.Bell /> <span className="hidden sm:inline">Avisos</span>
+                            <span className="bg-red-500 text-white px-2 py-0.5 border-2 border-black font-black">3</span>
+                        </button>
+                        <button onClick={() => showToast("Sessão encerrada com segurança.", "error")} className="neo-button bg-black text-white border-4 border-black px-4 sm:px-6 py-2 hover:bg-gray-800 transition-colors neo-shadow-sm flex items-center gap-2">
+                            <Icons.LogOut /> <span className="hidden sm:inline">Sair</span>
+                        </button>
+                    </div>
+                </header>
+
+                <div className="flex-1 overflow-y-auto p-4 sm:p-10">
+                    <div className="max-w-[1400px] mx-auto">
+                        {renderContent()}
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
